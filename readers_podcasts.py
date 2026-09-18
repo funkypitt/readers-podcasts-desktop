@@ -413,7 +413,20 @@ def parse_feed(fid, kind, data):
         elif tag in ("managingEditor", "name") and not author:
             author = (node.text or "").strip()
     episodes = [e for e in (_build(fid, kind, item) for item in items) if e]
-    return title, author, episodes
+    return title, author, _unique(episodes)
+
+
+def _unique(episodes):
+    """Feeds do repeat a guid — two different talks under one id, in several of the Dharma Seed
+    series. On the phone two rows with one id are a list that cannot be drawn at all; here they
+    would simply be the same episode twice. The first one listed wins."""
+    seen, out = set(), []
+    for e in episodes:
+        if e["id"] in seen:
+            continue
+        seen.add(e["id"])
+        out.append(e)
+    return out
 
 
 def _build(fid, kind, item):
@@ -628,8 +641,8 @@ class Store:
             orphans = [e for e in mine.values()
                        if e["id"] not in fresh_ids and (e["localPath"] or e["state"] == "STARTED" or e.get("starred"))]
             allofthem = sorted(merged + orphans, key=lambda e: e["published"], reverse=True)
-            trimmed = [e for i, e in enumerate(allofthem)
-                       if i < keep or e["localPath"] or e["state"] == "STARTED" or e.get("starred")]
+            trimmed = _unique([e for i, e in enumerate(allofthem)
+                               if i < keep or e["localPath"] or e["state"] == "STARTED" or e.get("starred")])
             self.episodes = [e for e in self.episodes if e["feedId"] != fid] + trimmed
             self._save_episodes(fid)
 
@@ -664,7 +677,8 @@ class Store:
             if e["localPath"] and not os.path.exists(e["localPath"]):
                 e["localPath"] = ""
             out.append(e)
-        return out
+        # Written by a version that let a repeated guid through.
+        return _unique(out)
 
     def _save_episodes(self, fid):
         rows = sorted([e for e in self.episodes if e["feedId"] == fid],
