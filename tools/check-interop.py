@@ -36,6 +36,10 @@ def write_fixtures(android_repo):
          "positionMs": 754000, "state": "STARTED", "lastPlayed": 1758200000000},
         {"id": rp.episode_id(fid, "episode-43"), "feedId": fid, "title": "Une brève",
          "positionMs": 0, "state": "NEW", "lastPlayed": 0},
+        # Untouched but starred: it has to travel all the same, or a favourite kept here would
+        # vanish on the phone the first time the file crossed.
+        {"id": rp.episode_id(fid, "episode-44"), "feedId": fid, "title": "Un favori",
+         "positionMs": 0, "state": "NEW", "lastPlayed": 0, "starred": True},
     ]
     settings = rp.settings_for_backup({"dark": False, "font": "serif", "speed": 1.5,
                                        "auto_refresh": False, "delete_when_played": True})
@@ -74,8 +78,10 @@ def read_phone(android_repo):
     assert len(started) == 1, data["episodes"]
     assert started[0]["id"] == rp.episode_id(fid, "p-1"), started
     assert started[0]["positionMs"] == 321000, started
-    # An untouched episode is left out of the file by both sides.
-    assert len(data["episodes"]) == 1, data["episodes"]
+    starred = [e for e in data["episodes"] if e.get("starred")]
+    assert len(starred) == 1 and starred[0]["id"] == rp.episode_id(fid, "p-3"), data["episodes"]
+    # An episode neither begun nor starred is left out of the file by both sides.
+    assert len(data["episodes"]) == 2, data["episodes"]
     return url, title
 
 

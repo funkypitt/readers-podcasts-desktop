@@ -51,8 +51,10 @@ FEEDS_FILE = os.path.join(DATA_DIR, "feeds.json")
 FEEDS_DIR = os.path.join(DATA_DIR, "feeds")
 AUDIO_DIR = os.path.join(DATA_DIR, "audio")
 
-VIEW_QUEUE = "queue"
-VIEW_NEW = "new"
+VIEW_CHANNELS = "channels"
+VIEW_EPISODES = "episodes"
+VIEW_FAVOURITES = "favourites"
+VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES)
 
 # ------------------------------------------------------------------------------------------
 # Six languages, the English text as the key — the same wording as the phone
@@ -60,6 +62,14 @@ VIEW_NEW = "new"
 
 STRINGS = {
  "fr": {
+  "episodes": "épisodes",
+  "favourites": "favoris",
+  "opens on": "s'ouvre sur",
+  "keep as a favourite": "garder en favori",
+  "no longer a favourite": "retirer des favoris",
+  "no favourite yet.": "aucun favori pour l'instant.",
+  "search": "recherche",
+  "a channel, an episode": "une chaîne, un épisode",
   "to hear": "à écouter", "new": "nouveautés", "channels": "chaînes", "+ a feed": "+ un flux",
   "the address of a feed": "l'adresse d'un flux", "subscribe": "s'abonner", "unsubscribe": "se désabonner",
   "refresh": "actualiser", "refreshing…": "actualisation…", "reading the feed…": "lecture du flux…",
@@ -92,6 +102,14 @@ STRINGS = {
   "podcasts, kept on this computer.": "des podcasts, gardés sur cet ordinateur.",
  },
  "de": {
+  "episodes": "Folgen",
+  "favourites": "Favoriten",
+  "opens on": "öffnet mit",
+  "keep as a favourite": "als Favorit behalten",
+  "no longer a favourite": "kein Favorit mehr",
+  "no favourite yet.": "noch kein Favorit.",
+  "search": "Suche",
+  "a channel, an episode": "ein Kanal, eine Folge",
   "to hear": "zu hören", "new": "neu", "channels": "Kanäle", "+ a feed": "+ ein Feed",
   "the address of a feed": "die Adresse eines Feeds", "subscribe": "abonnieren", "unsubscribe": "abbestellen",
   "refresh": "aktualisieren", "refreshing…": "wird aktualisiert…", "reading the feed…": "Feed wird gelesen…",
@@ -124,6 +142,14 @@ STRINGS = {
   "podcasts, kept on this computer.": "Podcasts, auf diesem Rechner behalten.",
  },
  "es": {
+  "episodes": "episodios",
+  "favourites": "favoritos",
+  "opens on": "se abre en",
+  "keep as a favourite": "guardar en favoritos",
+  "no longer a favourite": "quitar de favoritos",
+  "no favourite yet.": "ningún favorito todavía.",
+  "search": "búsqueda",
+  "a channel, an episode": "un canal, un episodio",
   "to hear": "por escuchar", "new": "novedades", "channels": "canales", "+ a feed": "+ una fuente",
   "the address of a feed": "la dirección de una fuente", "subscribe": "suscribirse", "unsubscribe": "darse de baja",
   "refresh": "actualizar", "refreshing…": "actualizando…", "reading the feed…": "leyendo la fuente…",
@@ -156,6 +182,14 @@ STRINGS = {
   "podcasts, kept on this computer.": "podcasts, guardados en este ordenador.",
  },
  "pt": {
+  "episodes": "episódios",
+  "favourites": "favoritos",
+  "opens on": "abre em",
+  "keep as a favourite": "guardar nos favoritos",
+  "no longer a favourite": "retirar dos favoritos",
+  "no favourite yet.": "ainda nenhum favorito.",
+  "search": "procura",
+  "a channel, an episode": "um canal, um episódio",
   "to hear": "por ouvir", "new": "novidades", "channels": "canais", "+ a feed": "+ uma fonte",
   "the address of a feed": "o endereço de uma fonte", "subscribe": "subscrever", "unsubscribe": "anular a subscrição",
   "refresh": "atualizar", "refreshing…": "a atualizar…", "reading the feed…": "a ler a fonte…",
@@ -188,6 +222,14 @@ STRINGS = {
   "podcasts, kept on this computer.": "podcasts, guardados neste computador.",
  },
  "ru": {
+  "episodes": "выпуски",
+  "favourites": "избранное",
+  "opens on": "открывается на",
+  "keep as a favourite": "в избранное",
+  "no longer a favourite": "убрать из избранного",
+  "no favourite yet.": "избранного пока нет.",
+  "search": "поиск",
+  "a channel, an episode": "канал, выпуск",
   "to hear": "послушать", "new": "новое", "channels": "каналы", "+ a feed": "+ лента",
   "the address of a feed": "адрес ленты", "subscribe": "подписаться", "unsubscribe": "отписаться",
   "refresh": "обновить", "refreshing…": "обновление…", "reading the feed…": "чтение ленты…",
@@ -415,7 +457,7 @@ def _build(fid, kind, item):
         "id": episode_id(fid, guid or media or (title + str(published))),
         "title": title, "published": published or int(datetime.now().timestamp() * 1000),
         "mediaUrl": media, "mime": mime or "audio/*", "bytes": size, "durationMs": duration,
-        "localPath": "", "positionMs": 0, "state": "NEW", "lastPlayed": 0,
+        "localPath": "", "positionMs": 0, "state": "NEW", "lastPlayed": 0, "starred": False,
         "description": description[:2000],
     }
 
@@ -462,8 +504,9 @@ def backup_export(settings, feeds, episodes):
                   for f in feeds],
         "episodes": [{"id": e["id"], "feed": e["feedId"], "title": e["title"],
                       "positionMs": e.get("positionMs", 0), "state": e.get("state", "NEW"),
-                      "lastPlayed": e.get("lastPlayed", 0)}
-                     for e in episodes if e.get("state", "NEW") != "NEW" or e.get("positionMs", 0) > 0],
+                      "lastPlayed": e.get("lastPlayed", 0), "starred": bool(e.get("starred"))}
+                     for e in episodes
+                     if e.get("state", "NEW") != "NEW" or e.get("positionMs", 0) > 0 or e.get("starred")],
     }, ensure_ascii=False, indent=2)
 
 
@@ -493,15 +536,22 @@ class Store:
         return sorted([e for e in self.episodes if e["feedId"] == fid],
                       key=lambda e: e["published"], reverse=True)
 
-    def queue(self):
-        ready = [e for e in self.episodes
-                 if e["state"] != "PLAYED" and (e["localPath"] or e["state"] == "STARTED")]
-        return sorted(ready, key=lambda e: (e["lastPlayed"] if e["state"] == "STARTED" else 0, e["published"]),
-                      reverse=True)
-
     def recent(self):
-        return sorted([e for e in self.episodes if e["state"] != "PLAYED"],
+        """« Épisodes » — everything there is, the latest first, across all the channels."""
+        return sorted(self.episodes, key=lambda e: e["published"], reverse=True)
+
+    def favourites(self):
+        """« Favoris » — the episodes given a star, the latest first."""
+        return sorted([e for e in self.episodes if e.get("starred")],
                       key=lambda e: e["published"], reverse=True)
+
+    def channels(self):
+        """« Chaînes » — the one that published last at the top: alphabetical order says
+        nothing, this order makes the first screen the news."""
+        latest = {}
+        for e in self.episodes:
+            latest[e["feedId"]] = max(latest.get(e["feedId"], 0), e["published"])
+        return sorted(self.feeds, key=lambda f: (-latest.get(f["id"], 0), (f.get("title") or "").lower()))
 
     def unplayed(self, fid):
         return len([e for e in self.episodes if e["feedId"] == fid and e["state"] != "PLAYED"])
@@ -569,17 +619,17 @@ class Store:
                 new = dict(new, feedId=fid)
                 old = mine.get(new["id"])
                 if old:
-                    new.update({k: old[k] for k in ("localPath", "positionMs", "state", "lastPlayed")})
+                    new.update({k: old[k] for k in ("localPath", "positionMs", "state", "lastPlayed", "starred")})
                     if not new["durationMs"]:
                         new["durationMs"] = old["durationMs"]
                 merged.append(new)
             fresh_ids = {e["id"] for e in merged}
             # A feed that lists only its last ten items must not delete what one is listening to.
             orphans = [e for e in mine.values()
-                       if e["id"] not in fresh_ids and (e["localPath"] or e["state"] == "STARTED")]
+                       if e["id"] not in fresh_ids and (e["localPath"] or e["state"] == "STARTED" or e.get("starred"))]
             allofthem = sorted(merged + orphans, key=lambda e: e["published"], reverse=True)
             trimmed = [e for i, e in enumerate(allofthem)
-                       if i < keep or e["localPath"] or e["state"] == "STARTED"]
+                       if i < keep or e["localPath"] or e["state"] == "STARTED" or e.get("starred")]
             self.episodes = [e for e in self.episodes if e["feedId"] != fid] + trimmed
             self._save_episodes(fid)
 
@@ -609,6 +659,7 @@ class Store:
         for e in items:
             e["feedId"] = fid
             e.setdefault("localPath", "")
+            e.setdefault("starred", False)
             # A file deleted from outside must not leave a row claiming to be here.
             if e["localPath"] and not os.path.exists(e["localPath"]):
                 e["localPath"] = ""
@@ -709,8 +760,9 @@ def _extension(episode):
 # Settings
 # ------------------------------------------------------------------------------------------
 
-DEFAULTS = {"dark": True, "font": "sans", "font_size": 12, "view": VIEW_QUEUE,
-            "auto_refresh": True, "delete_when_played": True, "speed": 1.0}
+DEFAULTS = {"dark": True, "font": "sans", "font_size": 12, "view": VIEW_CHANNELS,
+            "default_view": VIEW_CHANNELS, "auto_refresh": True, "delete_when_played": True,
+            "speed": 1.0}
 
 
 def load_config():
@@ -735,6 +787,7 @@ def save_config(cfg):
 def settings_for_backup(cfg):
     """The keys the phone writes, so one file serves both."""
     return {"theme": "DARK" if cfg.get("dark", True) else "LIGHT",
+            "default_view": cfg.get("default_view", VIEW_CHANNELS),
             "font": {"sans": "SANS", "serif": "SERIF", "mono": "MONO"}.get(cfg.get("font", "sans"), "SANS"),
             "auto_refresh": bool(cfg.get("auto_refresh", True)),
             "delete_when_played": bool(cfg.get("delete_when_played", True)),
@@ -749,6 +802,11 @@ def settings_from_backup(cfg, settings):
     for key in ("auto_refresh", "delete_when_played"):
         if key in settings:
             cfg[key] = bool(settings[key])
+    # The 0.1 names are mapped rather than dropped, so a file written then still opens something.
+    view = {"queue": VIEW_CHANNELS, "new": VIEW_EPISODES}.get(settings.get("default_view"),
+                                                              settings.get("default_view"))
+    if view in VIEWS:
+        cfg["default_view"] = view
     if "speed" in settings:
         try:
             cfg["speed"] = float(settings["speed"])
@@ -928,6 +986,11 @@ class SettingsDialog(QtWidgets.QDialog):
         self.size.setRange(9, 24)
         self.size.setValue(int(cfg.get("font_size", 12)))
         form.addRow(_("text size"), self.size)
+        self.opens = QtWidgets.QComboBox()
+        for key, label in ((VIEW_EPISODES, _("episodes")), (VIEW_FAVOURITES, _("favourites"))):
+            self.opens.addItem(label, key)
+        self.opens.setCurrentIndex(max(0, self.opens.findData(cfg.get("default_view", VIEW_CHANNELS))))
+        form.addRow(_("opens on"), self.opens)
         self.auto = QtWidgets.QCheckBox()
         self.auto.setChecked(bool(cfg.get("auto_refresh", True)))
         form.addRow(_("refresh on opening"), self.auto)
@@ -942,7 +1005,8 @@ class SettingsDialog(QtWidgets.QDialog):
     def values(self):
         return {"dark": self.colours.currentData(), "font": self.font.currentData(),
                 "font_size": self.size.value(), "auto_refresh": self.auto.isChecked(),
-                "delete_when_played": self.delete_played.isChecked()}
+                "delete_when_played": self.delete_played.isChecked(),
+                "default_view": self.opens.currentData()}
 
 
 # ------------------------------------------------------------------------------------------
@@ -956,7 +1020,9 @@ class Main(QtWidgets.QMainWindow):
         self.store = Store()
         self.dark = bool(self.cfg.get("dark", True))
         self.font_size = int(self.cfg.get("font_size", 12))
-        self.view = self.cfg.get("view", VIEW_QUEUE)
+        self.view = self.cfg.get("view") or self.cfg.get("default_view", VIEW_EPISODES)
+        if self.view == VIEW_CHANNELS:
+            self.view = VIEW_EPISODES
         self.threads = []            # kept referenced: a QThread garbage-collected mid-job dies
         self.downloading = None      # id of the episode coming down
         self.download_queue = []
@@ -1025,6 +1091,16 @@ class Main(QtWidgets.QMainWindow):
         head.addWidget(more)
         right_box.addLayout(head)
         right_box.addWidget(self._separator())
+
+        self.filter_text = ""
+        self.find = QtWidgets.QLineEdit()
+        self.find.setObjectName("find")
+        self.find.setPlaceholderText(_("a channel, an episode"))
+        self.find.setVisible(False)
+        self.find.textChanged.connect(self.on_filter)
+        # Escape puts the field away and shows the whole list again.
+        QtWidgets.QShortcut(QtGui.QKeySequence("Escape"), self.find, activated=self.close_search)
+        right_box.addWidget(self.find)
 
         self.episodes_list = QtWidgets.QListWidget()
         self.episodes_list.setObjectName("episodes")
@@ -1120,34 +1196,41 @@ class Main(QtWidgets.QMainWindow):
             if key == self.view:
                 item.setSelected(True)
 
-        row(_("to hear"), VIEW_QUEUE, len(self.store.queue()))
-        row(_("new"), VIEW_NEW, len(self.store.recent()))
+        # No "channels" row here: on a window the channels are the column itself, always in
+        # sight. The setting that names it simply opens on the episodes.
+        row(_("episodes"), VIEW_EPISODES, len(self.store.recent()))
+        row(_("favourites"), VIEW_FAVOURITES, len(self.store.favourites()))
         if self.store.feeds:
             rule = QtWidgets.QListWidgetItem("")
             rule.setData(QtCore.Qt.UserRole, FeedDelegate.RULE)
             rule.setFlags(QtCore.Qt.NoItemFlags)
             self.feeds_list.addItem(rule)
-        for f in sorted(self.store.feeds, key=lambda f: (f.get("title") or "").lower()):
+        for f in self.store.channels():
             row(f.get("title") or f["url"], f["id"], self.store.unplayed(f["id"]), f.get("lastError"))
         self.feeds_list.blockSignals(False)
 
     def current_episodes(self):
-        if self.view == VIEW_NEW:
-            return self.store.recent()
         if self.store.feed(self.view):
-            return self.store.episodes_of(self.view)
-        return self.store.queue()
+            episodes = self.store.episodes_of(self.view)
+        elif self.view == VIEW_FAVOURITES:
+            episodes = self.store.favourites()
+        else:
+            episodes = self.store.recent()
+        needle = self.filter_text.strip().lower()
+        if needle:
+            episodes = [e for e in episodes if needle in e["title"].lower()]
+        return episodes
 
     def refresh_episodes_list(self):
         keep = self.selected_id()
         self.episodes_list.clear()
         feed = self.store.feed(self.view)
         self.head_label.setText(self.busy or (feed.get("title") if feed else
-                                              (_("new") if self.view == VIEW_NEW else _("to hear"))))
+                                              (_("favourites") if self.view == VIEW_FAVOURITES else _("episodes"))))
         episodes = self.current_episodes()
         if not episodes:
             hint = (_("no subscriptions yet. + a feed below takes the address of one.") if not self.store.feeds
-                    else _("nothing on this computer yet.") if self.view == VIEW_QUEUE
+                    else _("no favourite yet.") if self.view == VIEW_FAVOURITES
                     else _("nothing here yet."))
             item = QtWidgets.QListWidgetItem(hint)
             item.setFlags(QtCore.Qt.NoItemFlags)
@@ -1189,7 +1272,8 @@ class Main(QtWidgets.QMainWindow):
             feed = self.store.feed(e["feedId"])
             channel = (feed or {}).get("title", "")
         length = spoken(duration) if duration else ""
-        return " · ".join(p for p in (channel, relative_date(e.get("published", 0)), state or length) if p)
+        star = "★" if e.get("starred") else ""
+        return " · ".join(p for p in (star, channel, relative_date(e.get("published", 0)), state or length) if p)
 
     def selected_id(self):
         items = self.episodes_list.selectedItems()
@@ -1212,6 +1296,7 @@ class Main(QtWidgets.QMainWindow):
 
     def page_menu(self):
         menu = QtWidgets.QMenu(self)
+        menu.addAction(_("search"), self.open_search)
         menu.addAction(_("refresh"), self.refresh_feeds)
         menu.addAction(_("+ a feed"), self.add_feed)
         menu.addSeparator()
@@ -1256,6 +1341,8 @@ class Main(QtWidgets.QMainWindow):
             menu.addAction(_("remove from this computer"), lambda: self.remove_file(e))
         else:
             menu.addAction(_("download"), lambda: self.queue_download(e))
+        menu.addAction(_("no longer a favourite") if e.get("starred") else _("keep as a favourite"),
+                       lambda: self.star(e, not e.get("starred")))
         heard = e.get("state") == "PLAYED"
         menu.addAction(_("mark as unheard") if heard else _("mark as heard"),
                        lambda: self.mark_played(e, not heard))
@@ -1265,6 +1352,23 @@ class Main(QtWidgets.QMainWindow):
         if feed and self.view != feed["id"]:
             menu.addAction(_("open the channel"), lambda: self.open_feed(feed["id"]))
         menu.exec_(self.episodes_list.viewport().mapToGlobal(point))
+
+    def close_search(self):
+        self.find.clear()
+        self.find.setVisible(False)
+        self.filter_text = ""
+        self.refresh_episodes_list()
+
+    def open_search(self):
+        """A field above the list, filtering what is already here — no one else's directory is
+        asked anything, which is also why it works with the connection off."""
+        self.find.setVisible(True)
+        self.find.setFocus()
+        self.find.selectAll()
+
+    def on_filter(self, text):
+        self.filter_text = text
+        self.refresh_episodes_list()
 
     def open_feed(self, fid):
         self.view = fid
@@ -1315,7 +1419,7 @@ class Main(QtWidgets.QMainWindow):
             self.stop()
         self.store.remove_feed(fid)
         if self.view == fid:
-            self.view = VIEW_QUEUE
+            self.view = VIEW_EPISODES
         self.refresh_all_lists()
 
     def refresh_feeds(self, feeds=None):
@@ -1408,6 +1512,10 @@ class Main(QtWidgets.QMainWindow):
         if self.current and self.current["id"] == episode["id"]:
             self.stop()
         self.store.delete_file(episode["id"])
+        self.refresh_all_lists()
+
+    def star(self, episode, starred):
+        self.store.update_episode(episode["id"], starred=bool(starred))
         self.refresh_all_lists()
 
     def mark_played(self, episode, played):
@@ -1521,9 +1629,13 @@ class Main(QtWidgets.QMainWindow):
             if not e:
                 continue
             if e.get("lastPlayed", 0) > s.get("lastPlayed", 0):
+                # The star is not a matter of when: a file that carries one puts it on.
+                if s.get("starred") and not e.get("starred"):
+                    self.store.update_episode(e["id"], starred=True)
                 continue
             self.store.update_episode(e["id"], positionMs=int(s.get("positionMs", 0)),
-                                      state=s.get("state", "NEW"), lastPlayed=int(s.get("lastPlayed", 0)))
+                                      state=s.get("state", "NEW"), lastPlayed=int(s.get("lastPlayed", 0)),
+                                      starred=bool(s.get("starred")))
 
     def fetch_missing(self, fresh):
         """Subscriptions named in an imported file that are not here yet; their positions are
