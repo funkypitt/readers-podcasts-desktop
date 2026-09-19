@@ -20,7 +20,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "0.1.0"
+VERSION = "1.0.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -66,6 +66,17 @@ STRINGS = {
   "episodes": "épisodes",
   "favourites": "favoris",
   "downloaded": "téléchargés",
+  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp n'est pas installé : c'est lui qui va chercher l'audio d'une vidéo",
+  "no channel was found at that address": "aucune chaîne trouvée à cette adresse",
+  "the audio is fetched first; it will play by itself": "l'audio est récupéré d'abord ; la lecture suivra",
+  "listen": "écouter",
+  "pause": "pause",
+  "stop the download": "arrêter le téléchargement",
+  "remove from this computer": "retirer de cet ordinateur",
+  "download": "télécharger",
+  "keep as a favourite": "garder en favori",
+  "remove from favourites": "retirer des favoris",
+  "chapters": "chapitres",
   "opens on": "s'ouvre sur",
   "keep as a favourite": "garder en favori",
   "no longer a favourite": "retirer des favoris",
@@ -108,6 +119,17 @@ STRINGS = {
   "episodes": "Folgen",
   "favourites": "Favoriten",
   "downloaded": "heruntergeladen",
+  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp ist nicht installiert: es holt den Ton eines Videos",
+  "no channel was found at that address": "unter dieser Adresse wurde kein Kanal gefunden",
+  "the audio is fetched first; it will play by itself": "der Ton wird zuerst geholt; er spielt dann von selbst",
+  "listen": "anhören",
+  "pause": "Pause",
+  "stop the download": "Download abbrechen",
+  "remove from this computer": "von diesem Rechner entfernen",
+  "download": "herunterladen",
+  "keep as a favourite": "als Favorit behalten",
+  "remove from favourites": "aus den Favoriten nehmen",
+  "chapters": "Kapitel",
   "opens on": "öffnet mit",
   "keep as a favourite": "als Favorit behalten",
   "no longer a favourite": "kein Favorit mehr",
@@ -150,6 +172,17 @@ STRINGS = {
   "episodes": "episodios",
   "favourites": "favoritos",
   "downloaded": "descargados",
+  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp no está instalado: es quien obtiene el audio de un vídeo",
+  "no channel was found at that address": "no se encontró ningún canal en esa dirección",
+  "the audio is fetched first; it will play by itself": "primero se obtiene el audio; sonará solo",
+  "listen": "escuchar",
+  "pause": "pausa",
+  "stop the download": "detener la descarga",
+  "remove from this computer": "quitar de este ordenador",
+  "download": "descargar",
+  "keep as a favourite": "guardar como favorito",
+  "remove from favourites": "quitar de favoritos",
+  "chapters": "capítulos",
   "opens on": "se abre en",
   "keep as a favourite": "guardar en favoritos",
   "no longer a favourite": "quitar de favoritos",
@@ -192,6 +225,17 @@ STRINGS = {
   "episodes": "episódios",
   "favourites": "favoritos",
   "downloaded": "transferidos",
+  "yt-dlp is not installed: it is what fetches the audio of a video": "o yt-dlp não está instalado: é ele que obtém o áudio de um vídeo",
+  "no channel was found at that address": "nenhum canal encontrado nesse endereço",
+  "the audio is fetched first; it will play by itself": "o áudio é obtido primeiro; tocará sozinho",
+  "listen": "ouvir",
+  "pause": "pausa",
+  "stop the download": "parar a transferência",
+  "remove from this computer": "retirar deste computador",
+  "download": "transferir",
+  "keep as a favourite": "guardar como favorito",
+  "remove from favourites": "retirar dos favoritos",
+  "chapters": "capítulos",
   "opens on": "abre em",
   "keep as a favourite": "guardar nos favoritos",
   "no longer a favourite": "retirar dos favoritos",
@@ -234,6 +278,17 @@ STRINGS = {
   "episodes": "выпуски",
   "favourites": "избранное",
   "downloaded": "загруженные",
+  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp не установлен: он загружает звук видео",
+  "no channel was found at that address": "по этому адресу канал не найден",
+  "the audio is fetched first; it will play by itself": "сначала загружается звук; потом заиграет сам",
+  "listen": "слушать",
+  "pause": "пауза",
+  "stop the download": "остановить загрузку",
+  "remove from this computer": "убрать с компьютера",
+  "download": "скачать",
+  "keep as a favourite": "в избранное",
+  "remove from favourites": "убрать из избранного",
+  "chapters": "главы",
   "opens on": "открывается на",
   "keep as a favourite": "в избранное",
   "no longer a favourite": "убрать из избранного",
@@ -322,6 +377,55 @@ def spoken(ms):
         return "%d s" % (max(0, ms) // 1000)
     minutes = (ms + 30000) // 60000
     return "%d h %02d" % (minutes // 60, minutes % 60) if minutes >= 60 else "%d min" % minutes
+
+
+_CHAPTER_HEAD = re.compile(r"^[\s\-–—*•>\[(]*(\d{1,2}:)?(\d{1,2}):(\d{2})[\s\-–—:•|)\]]*(.*)$")
+_CHAPTER_TAIL = re.compile(r"^(.*?)[\s\-–—:•|(\[]+(\d{1,2}:)?(\d{1,2}):(\d{2})[\s)\]]*$")
+_LINK = re.compile(r"(https?://[^\s<>\"')\]]+|www\.[^\s<>\"')\]]+)", re.I)
+
+
+def parse_chapters(description, duration_ms=0):
+    """The chapters a description carries, as the phone reads them (Chapters.kt): a list is only
+    a list with two times or more, in order, none past the end — « il en parle à 12:30 » is prose."""
+    found = []
+    for raw in (description or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        m = _CHAPTER_HEAD.match(line)
+        if m and m.group(4).strip():
+            h, mi, sec, title = m.group(1), m.group(2), m.group(3), m.group(4)
+        else:
+            m = _CHAPTER_TAIL.match(line)
+            if not m:
+                continue
+            title, h, mi, sec = m.group(1), m.group(2), m.group(3), m.group(4)
+        hours = int(h.rstrip(":")) if h else 0
+        minutes, seconds = int(mi), int(sec)
+        if seconds > 59 or (hours and minutes > 59):
+            continue
+        title = title.strip().strip("-–—:•|. ")
+        if title:
+            found.append(((hours * 3600 + minutes * 60 + seconds) * 1000, title))
+    if len(found) < 2 or any(b[0] <= a[0] for a, b in zip(found, found[1:])):
+        return []
+    if duration_ms and found[-1][0] >= duration_ms:
+        return []
+    return found
+
+
+def linkify(text):
+    """Plain text as HTML, its addresses made into links; the full stop that ends a sentence is
+    not part of the address that ends it."""
+    out, last = [], 0
+    for m in _LINK.finditer(text or ""):
+        url = m.group(0).rstrip(".,;:!?…")
+        out.append(html.escape(text[last:m.start()]))
+        href = url if url.lower().startswith("http") else "https://" + url
+        out.append('<a href="%s">%s</a>' % (html.escape(href, quote=True), html.escape(url)))
+        last = m.start() + len(url)
+    out.append(html.escape((text or "")[last:]))
+    return "".join(out).replace("\n", "<br>")
 
 
 def clock(ms):
@@ -734,6 +838,89 @@ def normalise(raw):
     return s
 
 
+_YT_ID = re.compile(r'(?:feeds/videos\.xml\?channel_id=|/channel/|"externalId":"|"channelId":")(UC[\w-]{20,})')
+
+
+def looks_like_youtube(url):
+    host = (urlparse(url).hostname or "").lower()
+    return host == "youtu.be" or host == "youtube.com" or host.endswith(".youtube.com")
+
+
+def youtube_feed(url):
+    """The Atom feed of a channel from whatever address was pasted — the same one the phone
+    arrives at (Youtube.kt), so the feed's id, which is computed from it, is the same on both."""
+    if "/feeds/videos.xml" in url:
+        return url
+    m = re.search(r"/channel/(UC[\w-]{20,})", url, re.I)
+    if m:
+        return "https://www.youtube.com/feeds/videos.xml?channel_id=" + m.group(1)
+    m = re.search(r"[?&]list=([\w-]+)", url)
+    if m:
+        return "https://www.youtube.com/feeds/videos.xml?playlist_id=" + m.group(1)
+    # A @handle does not give the id away: the page states it, late, so it is read as it comes
+    # and dropped the moment the id turns up rather than downloaded whole.
+    # Without this cookie a reader in Europe is sent to the consent page, which names no channel.
+    with requests.get(url, headers={"User-Agent": AGENT}, cookies={"SOCS": "CAI"}, stream=True, timeout=30) as r:
+        r.raise_for_status()
+        window = ""
+        for chunk in r.iter_content(64 * 1024):
+            window += chunk.decode("utf-8", "ignore")
+            found = _YT_ID.search(window)
+            if found:
+                return "https://www.youtube.com/feeds/videos.xml?channel_id=" + found.group(1)
+            window = window[-512:]
+    return None
+
+
+def auto_deletable(episode):
+    """What may be thrown away on its own once heard — the phone's rule (Model.kt): not a
+    favourite, not something written down, and not a video, which has no file to fetch again."""
+    return not episode.get("starred") and not episode.get("transcript") and not is_youtube_episode(episode)
+
+
+def is_youtube_episode(episode):
+    return looks_like_youtube(episode.get("mediaUrl", ""))
+
+
+def ytdlp_path():
+    import shutil
+    return shutil.which("yt-dlp")
+
+
+def download_with_ytdlp(episode, on_progress, cancelled):
+    """A YouTube entry is a page, not a file: yt-dlp finds the audio track and brings that down
+    alone. It is the system's own yt-dlp, kept current by whoever keeps the system."""
+    import subprocess
+    exe = ytdlp_path()
+    if not exe:
+        raise RuntimeError(_("yt-dlp is not installed: it is what fetches the audio of a video"))
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    stem = os.path.join(AUDIO_DIR, episode["id"])
+    for name in os.listdir(AUDIO_DIR):
+        if name.startswith(episode["id"] + "."):
+            os.remove(os.path.join(AUDIO_DIR, name))
+    proc = subprocess.Popen(
+        [exe, "-f", "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio", "-o", stem + ".%(ext)s",
+         "--no-playlist", "--no-mtime", "--newline", "--retries", "3", episode["mediaUrl"]],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    tail = []
+    for line in proc.stdout:
+        if cancelled():
+            proc.kill()
+            return None
+        m = re.search(r"\[download\]\s+([\d.]+)%", line)
+        if m:
+            on_progress(min(100, int(float(m.group(1)))))
+        elif line.strip():
+            tail = (tail + [line.strip()])[-3:]
+    if proc.wait() != 0:
+        raise RuntimeError(" ".join(tail)[:300] or "yt-dlp")
+    for name in os.listdir(AUDIO_DIR):
+        if name.startswith(episode["id"] + ".") and not name.endswith(".part"):
+            return os.path.join(AUDIO_DIR, name)
+    raise RuntimeError(" ".join(tail)[:300] or "yt-dlp")
+
+
 class Worker(QtCore.QObject):
     """One job on a thread of its own, reporting back to the window."""
     done = QtCore.pyqtSignal(object, object)     # result, error
@@ -753,6 +940,8 @@ class Worker(QtCore.QObject):
 
 def download(episode, on_progress, cancelled):
     """Resumable: what an interrupted attempt brought down waits in a .part file."""
+    if is_youtube_episode(episode):
+        return download_with_ytdlp(episode, on_progress, cancelled)
     os.makedirs(AUDIO_DIR, exist_ok=True)
     target = os.path.join(AUDIO_DIR, episode["id"] + "." + _extension(episode))
     part = target + ".part"
@@ -798,7 +987,7 @@ def _extension(episode):
 # ------------------------------------------------------------------------------------------
 
 DEFAULTS = {"dark": True, "font": "sans", "font_size": 12, "view": VIEW_CHANNELS,
-            "default_view": VIEW_CHANNELS, "auto_refresh": True, "delete_when_played": True,
+            "default_view": VIEW_CHANNELS, "auto_refresh": True, "delete_when_played": False,
             "speed": 1.0}
 
 
@@ -827,7 +1016,7 @@ def settings_for_backup(cfg):
             "default_view": cfg.get("default_view", VIEW_CHANNELS),
             "font": {"sans": "SANS", "serif": "SERIF", "mono": "MONO"}.get(cfg.get("font", "sans"), "SANS"),
             "auto_refresh": bool(cfg.get("auto_refresh", True)),
-            "delete_when_played": bool(cfg.get("delete_when_played", True)),
+            "delete_when_played": bool(cfg.get("delete_when_played", False)),
             "speed": float(cfg.get("speed", 1.0))}
 
 
@@ -1033,7 +1222,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.auto.setChecked(bool(cfg.get("auto_refresh", True)))
         form.addRow(_("refresh on opening"), self.auto)
         self.delete_played = QtWidgets.QCheckBox()
-        self.delete_played.setChecked(bool(cfg.get("delete_when_played", True)))
+        self.delete_played.setChecked(bool(cfg.get("delete_when_played", False)))
         form.addRow(_("delete once heard"), self.delete_played)
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -1149,7 +1338,21 @@ class Main(QtWidgets.QMainWindow):
         self.episodes_list.customContextMenuRequested.connect(self.episode_menu)
         self.episodes_list.itemActivated.connect(self.play_selected)
         self.episodes_list.itemDoubleClicked.connect(self.play_selected)
-        right_box.addWidget(self.episodes_list, 1)
+        # What the selected episode is about, beside the list: one reads before one listens, and a
+        # window has the room the telephone had to find by opening another screen.
+        self.details = QtWidgets.QTextBrowser()
+        self.details.setObjectName("details")
+        self.details.setOpenLinks(False)
+        self.details.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.details.anchorClicked.connect(self.on_detail_link)
+        self.details.setMinimumWidth(320)
+        self.episodes_list.currentItemChanged.connect(lambda *_: self.refresh_details())
+        split = QtWidgets.QHBoxLayout()
+        split.setContentsMargins(0, 0, 0, 0)
+        split.setSpacing(0)
+        split.addWidget(self.episodes_list, 3)
+        split.addWidget(self.details, 2)
+        right_box.addLayout(split, 1)
         body.addWidget(right, 1)
 
         outer.addWidget(self._separator())
@@ -1220,6 +1423,77 @@ class Main(QtWidgets.QMainWindow):
     def refresh_all_lists(self):
         self.refresh_feeds_list()
         self.refresh_episodes_list()
+        self.refresh_details()
+
+    def refresh_details(self):
+        """The pane on the right: the title in full, when and how long, what can be done, the
+        chapters if the notes list any, and the notes themselves with their links alive."""
+        e = self.selected_episode()
+        if not e:
+            self.details.setHtml("")
+            return
+        colors = getattr(self, "colors", {"fg": "#ffffff", "dim": "#8c8c8c"})
+        fg, dim = colors["fg"], colors["dim"]
+        feed = self.store.feed(e["feedId"]) or {}
+        duration = e.get("durationMs", 0)
+        meta = " · ".join(p for p in (feed.get("title", ""), relative_date(e.get("published", 0)),
+                                       spoken(duration) if duration else "") if p)
+        playing = self.current and self.current["id"] == e["id"]
+        here = bool(e.get("localPath"))
+        busy = e["id"] == self.downloading or e["id"] in self.download_queue
+        actions = [("act:play", _("pause") if playing and self.is_playing() else _("listen")),
+                   ("act:stopdl", _("stop the download")) if busy else
+                   ("act:remove", _("remove from this computer")) if here else ("act:download", _("download")),
+                   ("act:star", _("remove from favourites") if e.get("starred") else _("keep as a favourite"))]
+        link = 'style="color:%s;"' % fg
+        parts = ['<div style="font-size:%dpt; margin-bottom:4px;">%s%s</div>'
+                 % (self.font_size + 4, "★ " if e.get("starred") else "", html.escape(e["title"])),
+                 '<div style="color:%s; margin-bottom:14px;">%s</div>' % (dim, html.escape(meta)),
+                 '<div style="margin-bottom:14px;">%s</div>' % " &nbsp;·&nbsp; ".join(
+                     '<a href="%s" %s>%s</a>' % (href, link, html.escape(label)) for href, label in actions)]
+        chapters = parse_chapters(e.get("description", ""), duration)
+        if chapters:
+            parts.append('<div style="color:%s; margin-bottom:4px;">%s</div>' % (dim, html.escape(_("chapters"))))
+            parts.append("".join('<div><a href="chap:%d" %s>%s</a> &nbsp;%s</div>'
+                                 % (ms, link, clock(ms), html.escape(title)) for ms, title in chapters))
+            parts.append('<br>')
+        notes = linkify(e.get("description", "")).replace("<a href=", "<a %s href=" % link)
+        parts.append('<div style="line-height:140%%;">%s</div>' % notes)
+        at = self.details.verticalScrollBar().value() if getattr(self, "_detail_id", None) == e["id"] else 0
+        self._detail_id = e["id"]
+        self.details.setHtml("".join(parts))
+        self.details.verticalScrollBar().setValue(at)
+
+    def is_playing(self):
+        return bool(self.player) and self.player.state() == QtMultimedia.QMediaPlayer.PlayingState
+
+    def on_detail_link(self, url):
+        target = url.toString()
+        e = self.selected_episode()
+        if target.startswith("http"):
+            QtGui.QDesktopServices.openUrl(url)
+        elif not e:
+            return
+        elif target == "act:play":
+            self.play(e)
+        elif target == "act:download":
+            self.queue_download(e)
+        elif target == "act:stopdl":
+            self.stop_download(e)
+        elif target == "act:remove":
+            self.remove_file(e)
+        elif target == "act:star":
+            self.star(e, not e.get("starred"))
+        elif target.startswith("chap:"):
+            ms = int(target[5:])
+            if self.current and self.current["id"] == e["id"] and self.player:
+                self.player.setPosition(ms)
+                if not self.is_playing():
+                    self.player.play()
+            else:
+                self.store.update_episode(e["id"], positionMs=ms)
+                self.play(self.store.episode(e["id"]))
+        self.refresh_details()
 
     def refresh_feeds_list(self):
         self.feeds_list.blockSignals(True)
@@ -1435,18 +1709,26 @@ class Main(QtWidgets.QMainWindow):
         self.set_busy(_("reading the feed…"))
 
         def job(_progress):
-            fid = feed_id(url)
-            title, author, episodes = fetch_feed(url, fid, "RSS")
-            return fid, url, title, author, episodes
+            address, kind = url, "RSS"
+            if looks_like_youtube(url):
+                address, kind = youtube_feed(url), "YOUTUBE"
+                if not address:
+                    raise RuntimeError(_("no channel was found at that address"))
+            fid = feed_id(address)
+            title, author, episodes = fetch_feed(address, fid, kind)
+            return fid, address, title, author, episodes, kind
 
         def done(result, error):
             self.set_busy("")
             if error:
                 self.say(_("that feed could not be read. %s", str(error)[:80]))
                 return
-            fid, url_, title, author, episodes = result
+            fid, url_, title, author, episodes, kind = result
+            if self.store.feed(fid):
+                self.open_feed(fid)
+                return
             self.store.add_feed({"id": fid, "url": url_, "title": title or url_, "author": author,
-                                 "kind": "RSS", "addedAt": int(datetime.now().timestamp() * 1000),
+                                 "kind": kind, "addedAt": int(datetime.now().timestamp() * 1000),
                                  "lastFetch": int(datetime.now().timestamp() * 1000),
                                  "autoDownload": False, "keepCount": 50, "lastError": ""})
             self.store.merge(fid, episodes)
@@ -1544,6 +1826,9 @@ class Main(QtWidgets.QMainWindow):
             elif path:
                 self.store.update_episode(eid, localPath=path, bytes=os.path.getsize(path))
             self.refresh_all_lists()
+            if path and getattr(self, "play_when_fetched", None) == eid:
+                self.play_when_fetched = None
+                self.play(self.store.episode(eid))
             self.next_download()
 
         def progress(percent):
@@ -1566,7 +1851,7 @@ class Main(QtWidgets.QMainWindow):
         if played and self.current and self.current["id"] == episode["id"]:
             self.stop()
         self.store.update_episode(episode["id"], state="PLAYED" if played else "NEW", positionMs=0)
-        if played and self.cfg.get("delete_when_played", True):
+        if played and self.cfg.get("delete_when_played", False) and auto_deletable(episode):
             self.store.delete_file(episode["id"])
         self.refresh_all_lists()
 
@@ -1735,6 +2020,13 @@ class Main(QtWidgets.QMainWindow):
         if self.current and self.current["id"] == episode["id"]:
             self.toggle()
             return
+        if is_youtube_episode(episode) and not episode.get("localPath"):
+            # A page, not a file: nothing can play until yt-dlp has been through it. Asking for
+            # it to play fetches it, and the sound follows by itself — one asked to listen.
+            self.play_when_fetched = episode["id"]
+            self.queue_download(episode)
+            self.say(_("the audio is fetched first; it will play by itself"))
+            return
         self.save_position()
         self.current = episode
         source = (QtCore.QUrl.fromLocalFile(episode["localPath"]) if episode.get("localPath")
@@ -1799,7 +2091,7 @@ class Main(QtWidgets.QMainWindow):
         # something one stops trusting.
         eid = self.current["id"]
         self.store.update_episode(eid, state="PLAYED", positionMs=0)
-        if self.cfg.get("delete_when_played", True):
+        if self.cfg.get("delete_when_played", False) and auto_deletable(self.store.episode(eid) or {}):
             self.store.delete_file(eid)
         self.current = None
         self.refresh_all_lists()
@@ -1890,6 +2182,7 @@ class Main(QtWidgets.QMainWindow):
         dim = "rgba(255,255,255,0.55)" if self.dark else "rgba(0,0,0,0.55)"
         rule = "rgba(255,255,255,0.25)" if self.dark else "rgba(0,0,0,0.25)"
         s = self.font_size
+        self.colors = {"bg": bg, "fg": fg, "dim": "#8c8c8c" if self.dark else "#737373"}
         family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), "sans-serif")
         self.setStyleSheet(f"""
             QMainWindow, QWidget {{ background: {bg}; color: {fg}; font-family: "{family}";
@@ -1902,6 +2195,7 @@ class Main(QtWidgets.QMainWindow):
             QListWidget {{ background: {bg}; border: none; outline: none; }}
             QListWidget#feeds {{ border-right: 1px solid {rule}; padding: 10px 0; }}
             QListWidget#episodes {{ padding: 4px 0; }}
+            QTextBrowser#details {{ border: none; border-left: 1px solid {rule}; padding: 16px 20px; }}
             QScrollBar:vertical {{ background: {bg}; width: 6px; }}
             QScrollBar:horizontal {{ background: {bg}; height: 0; }}
             QScrollBar::handle:vertical {{ background: {rule}; min-height: 24px; }}

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Reader's Podcasts
+Comment=A text-only podcast player: channels, episodes, notes with their links and chapters
+Comment[fr]=Un lecteur de podcasts tout en texte : chaînes, épisodes, notes avec leurs liens et leurs chapitres
+Exec=readers-podcasts %u
+Icon=readers-podcasts
+Terminal=false
+Categories=AudioVideo;Audio;Player;Qt;
+Keywords=podcast;rss;opml;audio;youtube;
+MimeType=x-scheme-handler/feed;x-scheme-handler/podcast;x-scheme-handler/pcast;
