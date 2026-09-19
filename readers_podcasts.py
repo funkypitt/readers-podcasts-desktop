@@ -54,7 +54,8 @@ AUDIO_DIR = os.path.join(DATA_DIR, "audio")
 VIEW_CHANNELS = "channels"
 VIEW_EPISODES = "episodes"
 VIEW_FAVOURITES = "favourites"
-VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES)
+VIEW_DOWNLOADED = "downloaded"
+VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES, VIEW_DOWNLOADED)
 
 # ------------------------------------------------------------------------------------------
 # Six languages, the English text as the key — the same wording as the phone
@@ -64,11 +65,13 @@ STRINGS = {
  "fr": {
   "episodes": "épisodes",
   "favourites": "favoris",
+  "downloaded": "téléchargés",
   "opens on": "s'ouvre sur",
   "keep as a favourite": "garder en favori",
   "no longer a favourite": "retirer des favoris",
   "no favourite yet.": "aucun favori pour l'instant.",
-  "search": "recherche",
+  "nothing on this machine yet.": "rien sur cette machine pour l'instant.",
+    "search": "recherche",
   "a channel, an episode": "une chaîne, un épisode",
   "to hear": "à écouter", "new": "nouveautés", "channels": "chaînes", "+ a feed": "+ un flux",
   "the address of a feed": "l'adresse d'un flux", "subscribe": "s'abonner", "unsubscribe": "se désabonner",
@@ -104,11 +107,13 @@ STRINGS = {
  "de": {
   "episodes": "Folgen",
   "favourites": "Favoriten",
+  "downloaded": "heruntergeladen",
   "opens on": "öffnet mit",
   "keep as a favourite": "als Favorit behalten",
   "no longer a favourite": "kein Favorit mehr",
   "no favourite yet.": "noch kein Favorit.",
-  "search": "Suche",
+  "nothing on this machine yet.": "noch nichts auf diesem Rechner.",
+    "search": "Suche",
   "a channel, an episode": "ein Kanal, eine Folge",
   "to hear": "zu hören", "new": "neu", "channels": "Kanäle", "+ a feed": "+ ein Feed",
   "the address of a feed": "die Adresse eines Feeds", "subscribe": "abonnieren", "unsubscribe": "abbestellen",
@@ -144,11 +149,13 @@ STRINGS = {
  "es": {
   "episodes": "episodios",
   "favourites": "favoritos",
+  "downloaded": "descargados",
   "opens on": "se abre en",
   "keep as a favourite": "guardar en favoritos",
   "no longer a favourite": "quitar de favoritos",
   "no favourite yet.": "ningún favorito todavía.",
-  "search": "búsqueda",
+  "nothing on this machine yet.": "nada en esta máquina todavía.",
+    "search": "búsqueda",
   "a channel, an episode": "un canal, un episodio",
   "to hear": "por escuchar", "new": "novedades", "channels": "canales", "+ a feed": "+ una fuente",
   "the address of a feed": "la dirección de una fuente", "subscribe": "suscribirse", "unsubscribe": "darse de baja",
@@ -184,11 +191,13 @@ STRINGS = {
  "pt": {
   "episodes": "episódios",
   "favourites": "favoritos",
+  "downloaded": "transferidos",
   "opens on": "abre em",
   "keep as a favourite": "guardar nos favoritos",
   "no longer a favourite": "retirar dos favoritos",
   "no favourite yet.": "ainda nenhum favorito.",
-  "search": "procura",
+  "nothing on this machine yet.": "nada nesta máquina ainda.",
+    "search": "procura",
   "a channel, an episode": "um canal, um episódio",
   "to hear": "por ouvir", "new": "novidades", "channels": "canais", "+ a feed": "+ uma fonte",
   "the address of a feed": "o endereço de uma fonte", "subscribe": "subscrever", "unsubscribe": "anular a subscrição",
@@ -224,11 +233,13 @@ STRINGS = {
  "ru": {
   "episodes": "выпуски",
   "favourites": "избранное",
+  "downloaded": "загруженные",
   "opens on": "открывается на",
   "keep as a favourite": "в избранное",
   "no longer a favourite": "убрать из избранного",
   "no favourite yet.": "избранного пока нет.",
-  "search": "поиск",
+  "nothing on this machine yet.": "на этой машине пока ничего.",
+    "search": "поиск",
   "a channel, an episode": "канал, выпуск",
   "to hear": "послушать", "new": "новое", "channels": "каналы", "+ a feed": "+ лента",
   "the address of a feed": "адрес ленты", "subscribe": "подписаться", "unsubscribe": "отписаться",
@@ -450,8 +461,11 @@ def _build(fid, kind, item):
             except ValueError:
                 size = 0
         elif tag == "content" and node.get("url") and not media:
-            media = node.get("url")
-            mime = node.get("type") or mime
+            # A YouTube entry's <media:content> is the Flash embed of fifteen years ago; its
+            # page is what matters, and it comes from <link rel="alternate">.
+            if "flash" not in (node.get("type") or "").lower():
+                media = node.get("url")
+                mime = node.get("type") or mime
         elif tag == "link" and not link:
             href = node.get("href")
             if href and node.get("rel") in (None, "alternate"):
@@ -462,7 +476,9 @@ def _build(fid, kind, item):
             duration = _duration(text)
         elif tag in ("description", "summary") and not description:
             description = strip_html(text)
-    if not media and kind == "YOUTUBE" and link:
+    if kind == "YOUTUBE" and link:
+        media = link
+    elif not media and link and kind == "YOUTUBE":
         media = link
     if not media or not title:
         return None
@@ -556,6 +572,13 @@ class Store:
     def favourites(self):
         """« Favoris » — the episodes given a star, the latest first."""
         return sorted([e for e in self.episodes if e.get("starred")],
+                      key=lambda e: e["published"], reverse=True)
+
+    def downloaded(self):
+        """« Téléchargés » — what is on this machine, the latest first: what takes up room, and
+        what can be heard with nothing in hand."""
+        return sorted([e for e in self.episodes
+                       if e.get("localPath") and os.path.exists(e["localPath"])],
                       key=lambda e: e["published"], reverse=True)
 
     def channels(self):
@@ -1001,7 +1024,8 @@ class SettingsDialog(QtWidgets.QDialog):
         self.size.setValue(int(cfg.get("font_size", 12)))
         form.addRow(_("text size"), self.size)
         self.opens = QtWidgets.QComboBox()
-        for key, label in ((VIEW_EPISODES, _("episodes")), (VIEW_FAVOURITES, _("favourites"))):
+        for key, label in ((VIEW_EPISODES, _("episodes")), (VIEW_FAVOURITES, _("favourites")),
+                           (VIEW_DOWNLOADED, _("downloaded"))):
             self.opens.addItem(label, key)
         self.opens.setCurrentIndex(max(0, self.opens.findData(cfg.get("default_view", VIEW_CHANNELS))))
         form.addRow(_("opens on"), self.opens)
@@ -1214,6 +1238,7 @@ class Main(QtWidgets.QMainWindow):
         # sight. The setting that names it simply opens on the episodes.
         row(_("episodes"), VIEW_EPISODES, len(self.store.recent()))
         row(_("favourites"), VIEW_FAVOURITES, len(self.store.favourites()))
+        row(_("downloaded"), VIEW_DOWNLOADED, len(self.store.downloaded()))
         if self.store.feeds:
             rule = QtWidgets.QListWidgetItem("")
             rule.setData(QtCore.Qt.UserRole, FeedDelegate.RULE)
@@ -1228,6 +1253,8 @@ class Main(QtWidgets.QMainWindow):
             episodes = self.store.episodes_of(self.view)
         elif self.view == VIEW_FAVOURITES:
             episodes = self.store.favourites()
+        elif self.view == VIEW_DOWNLOADED:
+            episodes = self.store.downloaded()
         else:
             episodes = self.store.recent()
         needle = self.filter_text.strip().lower()
@@ -1240,11 +1267,14 @@ class Main(QtWidgets.QMainWindow):
         self.episodes_list.clear()
         feed = self.store.feed(self.view)
         self.head_label.setText(self.busy or (feed.get("title") if feed else
-                                              (_("favourites") if self.view == VIEW_FAVOURITES else _("episodes"))))
+                                              (_("favourites") if self.view == VIEW_FAVOURITES
+                                               else _("downloaded") if self.view == VIEW_DOWNLOADED
+                                               else _("episodes"))))
         episodes = self.current_episodes()
         if not episodes:
             hint = (_("no subscriptions yet. + a feed below takes the address of one.") if not self.store.feeds
                     else _("no favourite yet.") if self.view == VIEW_FAVOURITES
+                    else _("nothing on this machine yet.") if self.view == VIEW_DOWNLOADED
                     else _("nothing here yet."))
             item = QtWidgets.QListWidgetItem(hint)
             item.setFlags(QtCore.Qt.NoItemFlags)
