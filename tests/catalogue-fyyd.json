@@ -1,0 +1,87 @@
+{
+ "status": 1,
+ "msg": "ok",
+ "meta": {
+  "paging": {
+   "count": 6,
+   "page": 0,
+   "first_page": 0,
+   "last_page": 1,
+   "next_page": 1,
+   "prev_page": null
+  },
+  "API_INFO": {
+   "API_VERSION": "0.2"
+  },
+  "SERVER": "88.99.101.163",
+  "duration": 0
+ },
+ "data": [
+  {
+   "id": 4495,
+   "title": "Dharmabytes from free buddhist audio",
+   "xmlURL": "https://rss.libsyn.com/shows/185039/destinations/1271147.xml",
+   "htmlURL": "https://www.freebuddhistaudio.com",
+   "author": "Free Buddhist Audio",
+   "episode_count": 2036,
+   "language": "en",
+   "status": 200,
+   "description": "Dharmabytes features bite-sized dharma, three times a week, from the Free Buddhist Audio archives. Themed in conjunction"
+  },
+  {
+   "id": 47495,
+   "title": "Ananda Marga Dharmacast",
+   "xmlURL": "https://www.dharmacast.com/feed/podcast/",
+   "htmlURL": "https://www.dharmacast.com",
+   "author": "Dada Vedaprajinananda",
+   "episode_count": 159,
+   "language": "en",
+   "status": 200,
+   "description": "Podcasts on spirituality, meditation, Ananda Marga yoga philosophy"
+  },
+  {
+   "id": 89257,
+   "title": "Zentrum für Buddhismus - Bern: dharma talks and meditation instruction",
+   "xmlURL": "https://zbb.dharmaseed.org/feeds/recordings/",
+   "htmlURL": "https://dharmaseed.org",
+   "author": "Licensed under a Creative Commons Attribution-Noncommercial-NoDerivative Works 4.0 International License http://creative",
+   "episode_count": 7,
+   "language": "en",
+   "status": 200,
+   "description": ""
+  },
+  {
+   "id": 56081,
+   "title": "Zen",
+   "xmlURL": "https://choka-sangha.de/feed/m4a/",
+   "htmlURL": "https://choka-sangha.de",
+   "author": "Rei Ho Christoph Hatlapa Roshi",
+   "episode_count": 270,
+   "language": "de",
+   "status": 200,
+   "description": "In täglichen Lehrvorträgen, so genannten Teishōs, befaßt sich Rei Ho Christoph Hatlapa Roshi der Choka Sangha in Steyerb"
+  },
+  {
+   "id": 91181,
+   "title": "Wach und Offen",
+   "xmlURL": "https://wach-und-offen.de/feed/mp3/",
+   "htmlURL": "https://wach-und-offen.de",
+   "author": "Alexander Rüther",
+   "episode_count": 1,
+   "language": "de",
+   "status": 200,
+   "description": "Gespräche über Praxis, Leben und Erkenntnis\r\n\r\nIch spreche mit Buddhisten und anderen spirituellen Menschen über ihr Leb"
+  },
+  {
+   "id": 50047,
+   "title": "Deconstructing Yourself",
+   "xmlURL": "https://rss.art19.com/deconstructing-yourself",
+   "htmlURL": "https://deconstructingyourself.com",
+   "author": "Michael W. Taft",
+   "episode_count": 116,
+   "language": "en",
+   "status": 200,
+   "description": "Dedicated to liberation in all its forms, Deconstructing Yourself is passionate about fearlessly investigating, attempti"
+  }
+ ]
+}

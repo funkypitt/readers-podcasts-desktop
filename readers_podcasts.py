@@ -10,17 +10,19 @@ import os
 import re
 import sys
 import threading
+import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha1
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -63,6 +65,16 @@ VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES, VIEW_DOWNLOADED)
 
 STRINGS = {
  "fr": {
+  "add a podcast": "ajouter un podcast",
+  "a name, or a feed's address": "un nom, ou l'adresse d'un flux",
+  "subscribe to this address": "s'abonner à cette adresse",
+  "Type a few words of its name to look it up in the public directories, or paste the address of its feed.": "Tapez quelques mots de son nom pour le chercher dans les annuaires publics, ou collez l'adresse de son flux.",
+  "searching the directories…": "recherche dans les annuaires…",
+  "no podcast of that name in the directories": "aucun podcast de ce nom dans les annuaires",
+  "the directories do not answer — is the computer online?": "les annuaires ne répondent pas — l'ordinateur est-il connecté ?",
+  "%s did not answer: these come from the other one": "%s n'a pas répondu : ces résultats viennent de l'autre",
+  "found in Apple Podcasts and fyyd": "trouvés dans Apple Podcasts et fyyd",
+  "already followed": "déjà suivi",
   "episodes": "épisodes",
   "favourites": "favoris",
   "downloaded": "téléchargés",
@@ -89,8 +101,8 @@ STRINGS = {
   "refresh": "actualiser", "refreshing…": "actualisation…", "reading the feed…": "lecture du flux…",
   "subscribed to %s": "abonné à %s", "that feed could not be read. %s": "ce flux n'a pas pu être lu. %s",
   "no connection": "pas de connexion",
-  "no subscriptions yet. + a feed below takes the address of one.":
-      "aucun abonnement. « + un flux » ci-dessous prend l'adresse d'un flux.",
+  "no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.":
+      "aucun abonnement. « + un flux » ci-dessous trouve un podcast par son nom, ou prend l'adresse de son flux.",
   "nothing on this computer yet.": "rien sur cet ordinateur pour l'instant.",
   "nothing here yet.": "rien ici pour l'instant.",
   "download": "télécharger", "downloading %d %%": "téléchargement %d %%", "waiting": "en attente",
@@ -116,6 +128,16 @@ STRINGS = {
   "podcasts, kept on this computer.": "des podcasts, gardés sur cet ordinateur.",
  },
  "de": {
+  "add a podcast": "Podcast hinzufügen",
+  "a name, or a feed's address": "ein Name oder die Adresse eines Feeds",
+  "subscribe to this address": "diese Adresse abonnieren",
+  "Type a few words of its name to look it up in the public directories, or paste the address of its feed.": "Ein paar Wörter des Namens tippen, um in den öffentlichen Verzeichnissen zu suchen, oder die Adresse des Feeds einfügen.",
+  "searching the directories…": "Suche in den Verzeichnissen…",
+  "no podcast of that name in the directories": "kein Podcast dieses Namens in den Verzeichnissen",
+  "the directories do not answer — is the computer online?": "die Verzeichnisse antworten nicht – ist der Computer online?",
+  "%s did not answer: these come from the other one": "%s hat nicht geantwortet: diese kommen vom anderen",
+  "found in Apple Podcasts and fyyd": "gefunden bei Apple Podcasts und fyyd",
+  "already followed": "schon abonniert",
   "episodes": "Folgen",
   "favourites": "Favoriten",
   "downloaded": "heruntergeladen",
@@ -142,8 +164,8 @@ STRINGS = {
   "refresh": "aktualisieren", "refreshing…": "wird aktualisiert…", "reading the feed…": "Feed wird gelesen…",
   "subscribed to %s": "%s abonniert", "that feed could not be read. %s": "dieser Feed konnte nicht gelesen werden. %s",
   "no connection": "keine Verbindung",
-  "no subscriptions yet. + a feed below takes the address of one.":
-      "noch keine Abos. « + ein Feed » unten nimmt die Adresse eines Feeds.",
+  "no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.":
+      "noch keine Abos. „+ ein Feed“ unten findet einen Podcast über seinen Namen oder nimmt die Adresse seines Feeds.",
   "nothing on this computer yet.": "noch nichts auf diesem Rechner.",
   "nothing here yet.": "noch nichts hier.",
   "download": "herunterladen", "downloading %d %%": "wird geladen %d %%", "waiting": "wartet",
@@ -169,6 +191,16 @@ STRINGS = {
   "podcasts, kept on this computer.": "Podcasts, auf diesem Rechner behalten.",
  },
  "es": {
+  "add a podcast": "añadir un podcast",
+  "a name, or a feed's address": "un nombre o la dirección de una fuente",
+  "subscribe to this address": "suscribirse a esta dirección",
+  "Type a few words of its name to look it up in the public directories, or paste the address of its feed.": "Escriba unas palabras del nombre para buscarlo en los directorios públicos, o pegue la dirección de su fuente.",
+  "searching the directories…": "buscando en los directorios…",
+  "no podcast of that name in the directories": "ningún podcast con ese nombre en los directorios",
+  "the directories do not answer — is the computer online?": "los directorios no responden: ¿está conectado el ordenador?",
+  "%s did not answer: these come from the other one": "%s no respondió: estos vienen del otro",
+  "found in Apple Podcasts and fyyd": "encontrados en Apple Podcasts y fyyd",
+  "already followed": "ya suscrito",
   "episodes": "episodios",
   "favourites": "favoritos",
   "downloaded": "descargados",
@@ -195,8 +227,8 @@ STRINGS = {
   "refresh": "actualizar", "refreshing…": "actualizando…", "reading the feed…": "leyendo la fuente…",
   "subscribed to %s": "suscrito a %s", "that feed could not be read. %s": "no se pudo leer esa fuente. %s",
   "no connection": "sin conexión",
-  "no subscriptions yet. + a feed below takes the address of one.":
-      "ninguna suscripción. « + una fuente » abajo toma la dirección de una fuente.",
+  "no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.":
+      "ninguna suscripción. «+ una fuente» abajo encuentra un podcast por su nombre o toma la dirección de su fuente.",
   "nothing on this computer yet.": "nada en este ordenador todavía.",
   "nothing here yet.": "nada aquí todavía.",
   "download": "descargar", "downloading %d %%": "descargando %d %%", "waiting": "en espera",
@@ -222,6 +254,16 @@ STRINGS = {
   "podcasts, kept on this computer.": "podcasts, guardados en este ordenador.",
  },
  "pt": {
+  "add a podcast": "adicionar um podcast",
+  "a name, or a feed's address": "um nome ou o endereço de uma fonte",
+  "subscribe to this address": "subscrever este endereço",
+  "Type a few words of its name to look it up in the public directories, or paste the address of its feed.": "Escreva algumas palavras do nome para o procurar nos diretórios públicos, ou cole o endereço da sua fonte.",
+  "searching the directories…": "a procurar nos diretórios…",
+  "no podcast of that name in the directories": "nenhum podcast com esse nome nos diretórios",
+  "the directories do not answer — is the computer online?": "os diretórios não respondem — o computador está ligado à rede?",
+  "%s did not answer: these come from the other one": "%s não respondeu: estes vêm do outro",
+  "found in Apple Podcasts and fyyd": "encontrados no Apple Podcasts e no fyyd",
+  "already followed": "já subscrito",
   "episodes": "episódios",
   "favourites": "favoritos",
   "downloaded": "transferidos",
@@ -248,8 +290,8 @@ STRINGS = {
   "refresh": "atualizar", "refreshing…": "a atualizar…", "reading the feed…": "a ler a fonte…",
   "subscribed to %s": "subscrito %s", "that feed could not be read. %s": "não foi possível ler essa fonte. %s",
   "no connection": "sem ligação",
-  "no subscriptions yet. + a feed below takes the address of one.":
-      "nenhuma subscrição. « + uma fonte » abaixo aceita o endereço de uma fonte.",
+  "no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.":
+      "nenhuma subscrição. «+ uma fonte» abaixo encontra um podcast pelo nome ou aceita o endereço da sua fonte.",
   "nothing on this computer yet.": "ainda nada neste computador.",
   "nothing here yet.": "ainda nada aqui.",
   "download": "transferir", "downloading %d %%": "a transferir %d %%", "waiting": "em espera",
@@ -275,6 +317,16 @@ STRINGS = {
   "podcasts, kept on this computer.": "podcasts, guardados neste computador.",
  },
  "ru": {
+  "add a podcast": "добавить подкаст",
+  "a name, or a feed's address": "название или адрес ленты",
+  "subscribe to this address": "подписаться по этому адресу",
+  "Type a few words of its name to look it up in the public directories, or paste the address of its feed.": "Введите несколько слов названия, чтобы найти подкаст в открытых каталогах, или вставьте адрес его ленты.",
+  "searching the directories…": "поиск в каталогах…",
+  "no podcast of that name in the directories": "в каталогах нет подкаста с таким названием",
+  "the directories do not answer — is the computer online?": "каталоги не отвечают — есть ли подключение?",
+  "%s did not answer: these come from the other one": "%s не ответил: это результаты другого",
+  "found in Apple Podcasts and fyyd": "найдено в Apple Podcasts и fyyd",
+  "already followed": "уже в подписках",
   "episodes": "выпуски",
   "favourites": "избранное",
   "downloaded": "загруженные",
@@ -301,8 +353,8 @@ STRINGS = {
   "refresh": "обновить", "refreshing…": "обновление…", "reading the feed…": "чтение ленты…",
   "subscribed to %s": "подписка на %s", "that feed could not be read. %s": "эту ленту не удалось прочитать. %s",
   "no connection": "нет связи",
-  "no subscriptions yet. + a feed below takes the address of one.":
-      "подписок пока нет. « + лента » внизу принимает адрес ленты.",
+  "no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.":
+      "подписок пока нет. «+ лента» внизу находит подкаст по названию или принимает адрес его ленты.",
   "nothing on this computer yet.": "на этом компьютере пока ничего нет.",
   "nothing here yet.": "здесь пока пусто.",
   "download": "загрузить", "downloading %d %%": "загрузка %d %%", "waiting": "в очереди",
@@ -838,6 +890,154 @@ def normalise(raw):
     return s
 
 
+
+# ------------------------------------------------------------------------------------------
+# Finding a podcast by its name — the phone's Catalogue.kt, rule for rule: Apple's directory
+# and fyyd, both asked at once, either free to fail without the other's answer being lost.
+# ------------------------------------------------------------------------------------------
+
+CATALOGUE_APPLE = "Apple Podcasts"
+CATALOGUE_FYYD = "fyyd"
+
+
+def apple_search_url(term, country="", limit=30):
+    """The store of the reader's country answers first with that country's podcasts."""
+    url = "https://itunes.apple.com/search?media=podcast&entity=podcast&limit=%d&term=%s" % (
+        limit, quote_plus(term))
+    return url + ("&country=" + country.lower() if len(country or "") == 2 else "")
+
+
+def fyyd_search_url(term, count=30):
+    """`term=` rather than `title=`: the latter finds nothing as soon as there are two words."""
+    return "https://api.fyyd.de/0.2/search/podcast?count=%d&term=%s" % (count, quote_plus(term))
+
+
+def catalogue_author(raw):
+    """Some feeds put their licence where the author goes; a line of that is no name."""
+    s = " ".join((raw or "").split())
+    return "" if len(s) > 80 or "://" in s else s
+
+
+def parse_apple(data):
+    found = []
+    for o in (data or {}).get("results") or []:
+        url = (o.get("feedUrl") or "").strip()
+        title = (o.get("collectionName") or "").strip() or (o.get("trackName") or "").strip()
+        if url and title:
+            found.append({"title": title, "author": catalogue_author(o.get("artistName")),
+                          "url": url, "episodes": int(o.get("trackCount") or 0)})
+    return found
+
+
+def parse_fyyd(data):
+    found = []
+    for o in (data or {}).get("data") or []:
+        url = (o.get("xmlURL") or "").strip()
+        title = (o.get("title") or "").strip()
+        if url and title:
+            found.append({"title": title, "author": catalogue_author(o.get("author")),
+                          "url": url, "episodes": int(o.get("episode_count") or 0)})
+    return found
+
+
+def catalogue_key(url):
+    """One feed however the directories spell it: scheme, `www.`, the host's case, a final
+    slash. The path keeps its case — servers may tell /Feed from /feed."""
+    s = re.sub(r"^[a-zA-Z]+://", "", (url or "").strip()).rstrip("/")
+    host, slash, path = s.partition("/")
+    host = host.lower()
+    if host.startswith("www."):
+        host = host[4:]
+    return host + slash + path
+
+
+def _fold(text):
+    return "".join(c for c in unicodedata.normalize("NFD", (text or "").lower())
+                   if not unicodedata.combining(c))
+
+
+def catalogue_merge(query, *lists):
+    """Taken in turn from each directory, so neither buries the other; a feed both know appears
+    once, with whatever either knew of it. Names holding the whole query first, then those
+    holding all its words, then the rest — each group in the directories' order."""
+    seen = {}
+    for i in range(max((len(x) for x in lists), default=0)):
+        for found in lists:
+            if i >= len(found):
+                continue
+            f = found[i]
+            k = catalogue_key(f["url"])
+            had = seen.get(k)
+            if had is None:
+                seen[k] = dict(f)
+            else:
+                had["author"] = had["author"] or f["author"]
+                had["episodes"] = max(had["episodes"], f["episodes"])
+    q = _fold(query.strip())
+    words = q.split()
+
+    def rank(f):
+        t = _fold(f["title"])
+        if q and q in t:
+            return 0
+        if words and all(w in t for w in words):
+            return 1
+        return 2
+
+    return sorted(seen.values(), key=rank)
+
+
+def _get_json(url):
+    r = requests.get(url, headers={"User-Agent": AGENT}, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+
+def catalogue_search(term, country=""):
+    """Both directories at once. Returns (found, the names of those that did not answer)."""
+    def apple():
+        try:
+            return _get_json(apple_search_url(term, country))
+        except Exception:
+            if not country:
+                raise
+            return _get_json(apple_search_url(term))   # a country Apple does not know is a 400
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        a = pool.submit(apple)
+        f = pool.submit(_get_json, fyyd_search_url(term))
+        failed, lists = [], []
+        for name, future, parse in ((CATALOGUE_APPLE, a, parse_apple), (CATALOGUE_FYYD, f, parse_fyyd)):
+            try:
+                lists.append(parse(future.result()))
+            except Exception:
+                failed.append(name)
+                lists.append([])
+    return catalogue_merge(term, *lists), failed
+
+
+def clipboard_url(text):
+    """An address worth offering, or "" — the clipboard usually holds something else entirely."""
+    s = (text or "").strip()
+    right = 8 <= len(s) <= 2000 and " " not in s and s.lower().startswith(
+        ("http://", "https://", "feed://", "podcast://", "pcast://"))
+    return s if right else ""
+
+
+_ADDRESS = re.compile(r"^[^\s/]+\.[a-zA-Z]{2,}(/\S*)?$")
+
+
+def looks_like_address(text):
+    """An address rather than a name: a scheme, or a host with a dot and no spaces."""
+    s = (text or "").strip()
+    return bool(clipboard_url(s) or _ADDRESS.match(s))
+
+
+def cut(text, limit=44):
+    """A secondary line is read at a glance; past 44 characters it runs into the edge."""
+    return text if len(text) <= limit else text[:limit - 1].rstrip() + "…"
+
+
 _YT_ID = re.compile(r'(?:feeds/videos\.xml\?channel_id=|/channel/|"externalId":"|"channelId":")(UC[\w-]{20,})')
 
 
@@ -1193,6 +1393,130 @@ class FeedDelegate(QtWidgets.QStyledItemDelegate):
         p.restore()
 
 
+class AddDialog(QtWidgets.QDialog):
+    """Adding a podcast. One field takes either an address — the clipboard's is offered,
+    selected, so the first key replaces it — subscribed to as before, or a few words of a name,
+    looked up in the public directories as one types. A podcast found goes down the same road as
+    a pasted address; one already followed says so, and opens instead."""
+
+    def __init__(self, main, initial=""):
+        super().__init__(main)
+        self.main = main
+        self.generation = 0          # a newer search makes an older answer stale
+        self.setWindowTitle(_("add a podcast"))
+        self.resize(max(520, main.font_size * 44), max(420, main.font_size * 38))
+        box = QtWidgets.QVBoxLayout(self)
+        box.setContentsMargins(18, 18, 18, 12)
+        box.setSpacing(10)
+        self.field = QtWidgets.QLineEdit(initial)
+        self.field.setPlaceholderText(_("a name, or a feed's address"))
+        self.field.selectAll()
+        box.addWidget(self.field)
+        self.list = QtWidgets.QListWidget()
+        self.list.setObjectName("found")
+        self.list.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
+        self.list.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.list.setWordWrap(True)
+        self.list.itemClicked.connect(self.chosen)
+        box.addWidget(self.list, 1)
+        self.status = QtWidgets.QLabel()
+        self.status.setObjectName("dim")
+        self.status.setWordWrap(True)
+        box.addWidget(self.status)
+        self.timer = QtCore.QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.setInterval(600)
+        self.timer.timeout.connect(self.search)
+        self.field.textChanged.connect(self.changed)
+        self.field.returnPressed.connect(self.entered)
+        self.changed()
+
+    def _row(self, title, secondary, action):
+        dim = self.main.colors.get("dim", "#8c8c8c")
+        label = QtWidgets.QLabel("<div>%s</div><div style='color:%s; font-size:%dpt'>%s</div>" % (
+            html.escape(title), dim, max(8, self.main.font_size - 2), html.escape(secondary)))
+        label.setWordWrap(True)
+        label.setContentsMargins(4, 8, 4, 8)
+        label.setMinimumHeight(44)
+        label.setCursor(QtCore.Qt.PointingHandCursor)
+        label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        item = QtWidgets.QListWidgetItem()
+        item.setData(QtCore.Qt.UserRole, action)
+        self.list.addItem(item)
+        self.list.setItemWidget(item, label)
+        item.setSizeHint(QtCore.QSize(0, max(44, label.heightForWidth(self.list.viewport().width() - 8))))
+
+    def changed(self, *_args):
+        self.generation += 1
+        self.timer.stop()
+        self.list.clear()
+        text = self.field.text().strip()
+        if looks_like_address(text):
+            self._row(_("subscribe to this address"), cut(text), ("subscribe", text))
+            self.status.setText("")
+        elif len(text) < 2:
+            self.status.setText(_("Type a few words of its name to look it up in the public directories, or paste the address of its feed."))
+        else:
+            self.status.setText(_("searching the directories…"))
+            self.timer.start()
+
+    def entered(self):
+        text = self.field.text().strip()
+        if looks_like_address(text):
+            self.act(("subscribe", text))
+        elif len(text) >= 2:
+            self.timer.stop()
+            self.search()
+
+    def search(self):
+        text = self.field.text().strip()
+        if len(text) < 2 or looks_like_address(text):
+            return
+        self.generation += 1
+        mine = self.generation
+        country = (QtCore.QLocale().name().split("_") + [""])[1]
+        self.status.setText(_("searching the directories…"))
+
+        def done(result, error):
+            if mine != self.generation:
+                return
+            found, failed = result if result else ([], [CATALOGUE_APPLE, CATALOGUE_FYYD])
+            self.show_found(found, failed)
+
+        self.main.run(lambda _progress: catalogue_search(text, country), done)
+
+    def show_found(self, found, failed):
+        self.list.clear()
+        followed = {catalogue_key(f["url"]): f["id"] for f in self.main.store.feeds}
+        for f in found:
+            who = f["author"] or (urlparse(f["url"]).hostname or "")
+            fid = followed.get(catalogue_key(f["url"]))
+            if fid:
+                self._row(f["title"], cut(_("already followed") + " · " + who), ("open", fid))
+            else:
+                self._row(f["title"], cut(who), ("subscribe", f["url"]))
+        if not found:
+            self.status.setText(_("the directories do not answer — is the computer online?") if len(failed) >= 2
+                                else _("no podcast of that name in the directories"))
+        elif failed:
+            self.status.setText(_("%s did not answer: these come from the other one", failed[0]))
+        else:
+            self.status.setText(_("found in Apple Podcasts and fyyd"))
+
+    def chosen(self, item):
+        action = item.data(QtCore.Qt.UserRole)
+        if action:
+            self.act(action)
+
+    def act(self, action):
+        kind, value = action
+        self.accept()
+        if kind == "open":
+            self.main.open_feed(value)
+        else:
+            self.main.subscribe(value)
+
+
 class SettingsDialog(QtWidgets.QDialog):
     def __init__(self, parent, cfg):
         super().__init__(parent)
@@ -1546,7 +1870,7 @@ class Main(QtWidgets.QMainWindow):
                                                else _("episodes"))))
         episodes = self.current_episodes()
         if not episodes:
-            hint = (_("no subscriptions yet. + a feed below takes the address of one.") if not self.store.feeds
+            hint = (_("no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.") if not self.store.feeds
                     else _("no favourite yet.") if self.view == VIEW_FAVOURITES
                     else _("nothing on this machine yet.") if self.view == VIEW_DOWNLOADED
                     else _("nothing here yet."))
@@ -1697,9 +2021,7 @@ class Main(QtWidgets.QMainWindow):
     # ---- subscriptions ----
 
     def add_feed(self):
-        url, ok = QtWidgets.QInputDialog.getText(self, _("+ a feed"), _("the address of a feed"))
-        if ok and url.strip():
-            self.subscribe(url)
+        AddDialog(self, clipboard_url(QtWidgets.QApplication.clipboard().text())).exec_()
 
     def subscribe(self, raw):
         url = normalise(raw)

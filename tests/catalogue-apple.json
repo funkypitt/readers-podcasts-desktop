@@ -1,0 +1,53 @@
+{
+ "resultCount": 4,
+ "results": [
+  {
+   "wrapperType": "track",
+   "kind": "podcast",
+   "collectionId": 300765836,
+   "artistName": "dharmaseed.org",
+   "collectionName": "Dharma Seed: dharma talks and meditation instruction",
+   "trackName": "Dharma Seed: dharma talks and meditation instruction",
+   "feedUrl": "https://www.dharmaseed.org/feeds/recordings/",
+   "trackCount": 145,
+   "collectionViewUrl": "https://podcasts.apple.com/ch/podcast/dharma-seed-dharma-talks-and-meditation-instruction/id300765836?uo=4",
+   "primaryGenreName": "Buddhismus"
+  },
+  {
+   "wrapperType": "track",
+   "kind": "podcast",
+   "collectionId": 1521108629,
+   "artistName": "dharmaseed.org",
+   "collectionName": "Dharma Seed: dharma talks and meditation instruction",
+   "trackName": "Dharma Seed: dharma talks and meditation instruction",
+   "feedUrl": "https://dharmaseed.org/feeds/recordings/",
+   "trackCount": 145,
+   "collectionViewUrl": "https://podcasts.apple.com/ch/podcast/dharma-seed-dharma-talks-and-meditation-instruction/id1521108629?uo=4",
+   "primaryGenreName": "Buddhismus"
+  },
+  {
+   "wrapperType": "track",
+   "kind": "podcast",
+   "collectionId": 323200344,
+   "artistName": "via dharmaseed.org",
+   "collectionName": "Insight Meditation Society - Forest Refuge: dharma talks and meditation instruction",
+   "trackName": "Insight Meditation Society - Forest Refuge: dharma talks and meditation instruction",
+   "feedUrl": "https://IMSFR.dharmaseed.org/feeds/recordings/",
+   "trackCount": 144,
+   "collectionViewUrl": "https://podcasts.apple.com/ch/podcast/insight-meditation-society-forest-refuge-dharma-talks/id323200344?uo=4",
+   "primaryGenreName": "Buddhismus"
+  },
+  {
+   "wrapperType": "track",
+   "kind": "podcast",
+   "collectionId": 1681613433,
+   "artistName": "via dharmaseed.org",
+   "collectionName": "Insight Meditation Society - Forest Refuge: dharma talks and meditation instruction",
+   "trackName": "Insight Meditation Society - Forest Refuge: dharma talks and meditation instruction",
+   "feedUrl": "https://imsfr.dharmaseed.org/feeds/recordings/",
+   "trackCount": 144,
+   "collectionViewUrl": "https://podcasts.apple.com/ch/podcast/insight-meditation-society-forest-refuge-dharma-talks/id1681613433?uo=4",
+   "primaryGenreName": "Buddhismus"
+  }
+ ]
+}
