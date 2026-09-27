@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -476,17 +476,48 @@ def parse_chapters(description, duration_ms=0):
     return found
 
 
-def linkify(text):
-    """Plain text as HTML, its addresses made into links; the full stop that ends a sentence is
-    not part of the address that ends it."""
+_TIME = re.compile(r"(?<![\d:.])(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?![\d:])")
+
+
+def times_in(text, duration_ms=0):
+    """Every time written in a text (12:34, 1:02:03) as (start, end, ms) — as the phone reads them
+    (Chapters.times): a time past the end of the episode is a clock time and is left alone."""
+    found = []
+    for m in _TIME.finditer(text or ""):
+        seconds, minutes = int(m.group(3)), int(m.group(2))
+        if seconds > 59 or (m.group(1) and minutes > 59):
+            continue
+        ms = ((int(m.group(1) or 0) * 3600) + minutes * 60 + seconds) * 1000
+        if duration_ms and ms >= duration_ms:
+            continue
+        found.append((m.start(), m.end(), ms))
+    return found
+
+
+def _times_linked(text, duration_ms):
     out, last = [], 0
-    for m in _LINK.finditer(text or ""):
+    for start, end, ms in times_in(text, duration_ms):
+        out.append(html.escape(text[last:start]))
+        out.append('<a href="chap:%d">%s</a>' % (ms, html.escape(text[start:end])))
+        last = end
+    out.append(html.escape(text[last:]))
+    return "".join(out)
+
+
+def linkify(text, duration_ms=0, times=False):
+    """Plain text as HTML, its addresses made into links; the full stop that ends a sentence is
+    not part of the address that ends it. With [times], every time written in it sends the sound
+    there (a chap: link, as the chapter list uses)."""
+    text = text or ""
+    plain = (lambda t: _times_linked(t, duration_ms)) if times else html.escape
+    out, last = [], 0
+    for m in _LINK.finditer(text):
         url = m.group(0).rstrip(".,;:!?…")
-        out.append(html.escape(text[last:m.start()]))
+        out.append(plain(text[last:m.start()]))
         href = url if url.lower().startswith("http") else "https://" + url
         out.append('<a href="%s">%s</a>' % (html.escape(href, quote=True), html.escape(url)))
         last = m.start() + len(url)
-    out.append(html.escape((text or "")[last:]))
+    out.append(plain(text[last:]))
     return "".join(out).replace("\n", "<br>")
 
 
@@ -657,7 +688,7 @@ def _build(fid, kind, item):
         "title": title, "published": published or int(datetime.now().timestamp() * 1000),
         "mediaUrl": media, "mime": mime or "audio/*", "bytes": size, "durationMs": duration,
         "localPath": "", "positionMs": 0, "state": "NEW", "lastPlayed": 0, "starred": False,
-        "description": description[:2000],
+        "description": description[:10000],
     }
 
 
@@ -1802,7 +1833,7 @@ class Main(QtWidgets.QMainWindow):
             parts.append("".join('<div><a href="chap:%d" %s>%s</a> &nbsp;%s</div>'
                                  % (ms, link, clock(ms), html.escape(title)) for ms, title in chapters))
             parts.append('<br>')
-        notes = linkify(e.get("description", "")).replace("<a href=", "<a %s href=" % link)
+        notes = linkify(e.get("description", ""), duration, times=True).replace("<a href=", "<a %s href=" % link)
         parts.append('<div style="line-height:140%%;">%s</div>' % notes)
         at = self.details.verticalScrollBar().value() if getattr(self, "_detail_id", None) == e["id"] else 0
         self._detail_id = e["id"]
