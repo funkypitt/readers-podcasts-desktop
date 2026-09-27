@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -78,7 +78,7 @@ STRINGS = {
   "episodes": "épisodes",
   "favourites": "favoris",
   "downloaded": "téléchargés",
-  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp n'est pas installé : c'est lui qui va chercher l'audio d'une vidéo",
+  "YouTube needs yt-dlp, which is not installed": "YouTube demande yt-dlp, qui n'est pas installé",
   "no channel was found at that address": "aucune chaîne trouvée à cette adresse",
   "the audio is fetched first; it will play by itself": "l'audio est récupéré d'abord ; la lecture suivra",
   "listen": "écouter",
@@ -91,9 +91,7 @@ STRINGS = {
   "chapters": "chapitres",
   "opens on": "s'ouvre sur",
   "keep as a favourite": "garder en favori",
-  "no longer a favourite": "retirer des favoris",
   "no favourite yet.": "aucun favori pour l'instant.",
-  "nothing on this machine yet.": "rien sur cette machine pour l'instant.",
     "search": "recherche",
   "a channel, an episode": "une chaîne, un épisode",
   "to hear": "à écouter", "new": "nouveautés", "channels": "chaînes", "+ a feed": "+ un flux",
@@ -126,6 +124,10 @@ STRINGS = {
   "audio is missing: install python3-pyqt5.qtmultimedia": "audio manquant : installez python3-pyqt5.qtmultimedia",
   "nothing playing": "rien en écoute", "cancel": "annuler", "ok": "ok", "close": "fermer",
   "podcasts, kept on this computer.": "des podcasts, gardés sur cet ordinateur.",
+  "%d s": "%d s", "%d min": "%d min", "%d h %02d": "%d h %02d",
+  "sans-serif": "sans empattement", "serif": "avec empattement", "mono": "chasse fixe",
+  "the download failed. %s": "le téléchargement a échoué. %s", "the refresh failed. %s": "l'actualisation a échoué. %s",
+  "the import failed. %s": "l'import a échoué. %s", "last refresh failed: %s": "dernière actualisation échouée : %s",
  },
  "de": {
   "add a podcast": "Podcast hinzufügen",
@@ -141,7 +143,7 @@ STRINGS = {
   "episodes": "Folgen",
   "favourites": "Favoriten",
   "downloaded": "heruntergeladen",
-  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp ist nicht installiert: es holt den Ton eines Videos",
+  "YouTube needs yt-dlp, which is not installed": "für YouTube wird yt-dlp gebraucht, das nicht installiert ist",
   "no channel was found at that address": "unter dieser Adresse wurde kein Kanal gefunden",
   "the audio is fetched first; it will play by itself": "der Ton wird zuerst geholt; er spielt dann von selbst",
   "listen": "anhören",
@@ -150,13 +152,11 @@ STRINGS = {
   "remove from this computer": "von diesem Rechner entfernen",
   "download": "herunterladen",
   "keep as a favourite": "als Favorit behalten",
-  "remove from favourites": "aus den Favoriten nehmen",
+  "remove from favourites": "aus den Favoriten entfernen",
   "chapters": "Kapitel",
   "opens on": "öffnet mit",
   "keep as a favourite": "als Favorit behalten",
-  "no longer a favourite": "kein Favorit mehr",
   "no favourite yet.": "noch kein Favorit.",
-  "nothing on this machine yet.": "noch nichts auf diesem Rechner.",
     "search": "Suche",
   "a channel, an episode": "ein Kanal, eine Folge",
   "to hear": "zu hören", "new": "neu", "channels": "Kanäle", "+ a feed": "+ ein Feed",
@@ -172,13 +172,13 @@ STRINGS = {
   "stop the download": "Download anhalten",
   "remove from this computer": "vom Rechner nehmen", "on this computer": "auf diesem Rechner",
   "heard": "gehört", "begun": "begonnen", "%s left": "noch %s",
-  "mark as heard": "als gehört merken", "mark as unheard": "als ungehört merken",
+  "mark as heard": "als gehört markieren", "mark as unheard": "als ungehört markieren",
   "copy the link": "Link kopieren", "open the channel": "zum Kanal",
   "automatic download": "automatisch laden",
-  "import subscriptions": "Abos einlesen", "export the subscriptions": "Abos ausgeben",
-  "import settings": "Einstellungen einlesen", "export the settings": "Einstellungen ausgeben",
-  "subscriptions exported": "Abos ausgegeben", "no subscription in that file": "kein Abo in dieser Datei",
-  "settings exported": "Einstellungen ausgegeben", "settings imported": "Einstellungen eingelesen",
+  "import subscriptions": "Abos importieren", "export the subscriptions": "Abos exportieren",
+  "import settings": "Einstellungen importieren", "export the settings": "Einstellungen exportieren",
+  "subscriptions exported": "Abos exportiert", "no subscription in that file": "kein Abo in dieser Datei",
+  "settings exported": "Einstellungen exportiert", "settings imported": "Einstellungen importiert",
   "that file could not be read": "diese Datei konnte nicht gelesen werden", "could not write the file": "Schreiben nicht möglich",
   "%d feeds added": "%d Feeds hinzugefügt",
   "settings": "Einstellungen", "colours": "Farben", "white on black": "weiss auf schwarz",
@@ -189,6 +189,10 @@ STRINGS = {
   "audio is missing: install python3-pyqt5.qtmultimedia": "Audio fehlt: python3-pyqt5.qtmultimedia installieren",
   "nothing playing": "nichts läuft", "cancel": "abbrechen", "ok": "ok", "close": "schliessen",
   "podcasts, kept on this computer.": "Podcasts, auf diesem Rechner behalten.",
+  "%d s": "%d s", "%d min": "%d min", "%d h %02d": "%d h %02d",
+  "sans-serif": "serifenlos", "serif": "mit Serifen", "mono": "feste Breite",
+  "the download failed. %s": "der Download ist fehlgeschlagen. %s", "the refresh failed. %s": "die Aktualisierung ist fehlgeschlagen. %s",
+  "the import failed. %s": "der Import ist fehlgeschlagen. %s", "last refresh failed: %s": "letzte Aktualisierung fehlgeschlagen: %s",
  },
  "es": {
   "add a podcast": "añadir un podcast",
@@ -204,7 +208,7 @@ STRINGS = {
   "episodes": "episodios",
   "favourites": "favoritos",
   "downloaded": "descargados",
-  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp no está instalado: es quien obtiene el audio de un vídeo",
+  "YouTube needs yt-dlp, which is not installed": "YouTube necesita yt-dlp, que no está instalado",
   "no channel was found at that address": "no se encontró ningún canal en esa dirección",
   "the audio is fetched first; it will play by itself": "primero se obtiene el audio; sonará solo",
   "listen": "escuchar",
@@ -217,9 +221,7 @@ STRINGS = {
   "chapters": "capítulos",
   "opens on": "se abre en",
   "keep as a favourite": "guardar en favoritos",
-  "no longer a favourite": "quitar de favoritos",
   "no favourite yet.": "ningún favorito todavía.",
-  "nothing on this machine yet.": "nada en esta máquina todavía.",
     "search": "búsqueda",
   "a channel, an episode": "un canal, un episodio",
   "to hear": "por escuchar", "new": "novedades", "channels": "canales", "+ a feed": "+ una fuente",
@@ -252,6 +254,10 @@ STRINGS = {
   "audio is missing: install python3-pyqt5.qtmultimedia": "falta el audio: instale python3-pyqt5.qtmultimedia",
   "nothing playing": "nada en escucha", "cancel": "cancelar", "ok": "ok", "close": "cerrar",
   "podcasts, kept on this computer.": "podcasts, guardados en este ordenador.",
+  "%d s": "%d s", "%d min": "%d min", "%d h %02d": "%d h %02d",
+  "sans-serif": "sin serifa", "serif": "con serifa", "mono": "monoespaciada",
+  "the download failed. %s": "la descarga falló. %s", "the refresh failed. %s": "la actualización falló. %s",
+  "the import failed. %s": "la importación falló. %s", "last refresh failed: %s": "la última actualización falló: %s",
  },
  "pt": {
   "add a podcast": "adicionar um podcast",
@@ -267,7 +273,7 @@ STRINGS = {
   "episodes": "episódios",
   "favourites": "favoritos",
   "downloaded": "transferidos",
-  "yt-dlp is not installed: it is what fetches the audio of a video": "o yt-dlp não está instalado: é ele que obtém o áudio de um vídeo",
+  "YouTube needs yt-dlp, which is not installed": "o YouTube precisa do yt-dlp, que não está instalado",
   "no channel was found at that address": "nenhum canal encontrado nesse endereço",
   "the audio is fetched first; it will play by itself": "o áudio é obtido primeiro; tocará sozinho",
   "listen": "ouvir",
@@ -280,15 +286,13 @@ STRINGS = {
   "chapters": "capítulos",
   "opens on": "abre em",
   "keep as a favourite": "guardar nos favoritos",
-  "no longer a favourite": "retirar dos favoritos",
   "no favourite yet.": "ainda nenhum favorito.",
-  "nothing on this machine yet.": "nada nesta máquina ainda.",
     "search": "procura",
   "a channel, an episode": "um canal, um episódio",
   "to hear": "por ouvir", "new": "novidades", "channels": "canais", "+ a feed": "+ uma fonte",
   "the address of a feed": "o endereço de uma fonte", "subscribe": "subscrever", "unsubscribe": "anular a subscrição",
   "refresh": "atualizar", "refreshing…": "a atualizar…", "reading the feed…": "a ler a fonte…",
-  "subscribed to %s": "subscrito %s", "that feed could not be read. %s": "não foi possível ler essa fonte. %s",
+  "subscribed to %s": "subscrito: %s", "that feed could not be read. %s": "não foi possível ler essa fonte. %s",
   "no connection": "sem ligação",
   "no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.":
       "nenhuma subscrição. «+ uma fonte» abaixo encontra um podcast pelo nome ou aceita o endereço da sua fonte.",
@@ -315,6 +319,10 @@ STRINGS = {
   "audio is missing: install python3-pyqt5.qtmultimedia": "falta o áudio: instale python3-pyqt5.qtmultimedia",
   "nothing playing": "nada em audição", "cancel": "cancelar", "ok": "ok", "close": "fechar",
   "podcasts, kept on this computer.": "podcasts, guardados neste computador.",
+  "%d s": "%d s", "%d min": "%d min", "%d h %02d": "%d h %02d",
+  "sans-serif": "sem serifa", "serif": "com serifa", "mono": "monoespaçada",
+  "the download failed. %s": "a transferência falhou. %s", "the refresh failed. %s": "a atualização falhou. %s",
+  "the import failed. %s": "a importação falhou. %s", "last refresh failed: %s": "a última atualização falhou: %s",
  },
  "ru": {
   "add a podcast": "добавить подкаст",
@@ -330,7 +338,7 @@ STRINGS = {
   "episodes": "выпуски",
   "favourites": "избранное",
   "downloaded": "загруженные",
-  "yt-dlp is not installed: it is what fetches the audio of a video": "yt-dlp не установлен: он загружает звук видео",
+  "YouTube needs yt-dlp, which is not installed": "для YouTube нужен yt-dlp, а он не установлен",
   "no channel was found at that address": "по этому адресу канал не найден",
   "the audio is fetched first; it will play by itself": "сначала загружается звук; потом заиграет сам",
   "listen": "слушать",
@@ -343,9 +351,7 @@ STRINGS = {
   "chapters": "главы",
   "opens on": "открывается на",
   "keep as a favourite": "в избранное",
-  "no longer a favourite": "убрать из избранного",
   "no favourite yet.": "избранного пока нет.",
-  "nothing on this machine yet.": "на этой машине пока ничего.",
     "search": "поиск",
   "a channel, an episode": "канал, выпуск",
   "to hear": "послушать", "new": "новое", "channels": "каналы", "+ a feed": "+ лента",
@@ -369,7 +375,7 @@ STRINGS = {
   "subscriptions exported": "подписки экспортированы", "no subscription in that file": "в этом файле нет подписок",
   "settings exported": "настройки экспортированы", "settings imported": "настройки импортированы",
   "that file could not be read": "этот файл не удалось прочитать", "could not write the file": "не удалось записать файл",
-  "%d feeds added": "добавлено каналов: %d",
+  "%d feeds added": "добавлено лент: %d",
   "settings": "настройки", "colours": "цвета", "white on black": "белое на чёрном",
   "black on white": "чёрное на белом", "text size": "размер текста", "font": "шрифт",
   "refresh on opening": "обновлять при открытии", "delete once heard": "удалять после прослушивания",
@@ -378,6 +384,10 @@ STRINGS = {
   "audio is missing: install python3-pyqt5.qtmultimedia": "нет аудио: установите python3-pyqt5.qtmultimedia",
   "nothing playing": "ничего не играет", "cancel": "отмена", "ok": "ок", "close": "закрыть",
   "podcasts, kept on this computer.": "подкасты, которые остаются на этом компьютере.",
+  "%d s": "%d с", "%d min": "%d мин", "%d h %02d": "%d ч %02d",
+  "sans-serif": "без засечек", "serif": "с засечками", "mono": "моноширинный",
+  "the download failed. %s": "загрузка не удалась. %s", "the refresh failed. %s": "обновление не удалось. %s",
+  "the import failed. %s": "импорт не удался. %s", "last refresh failed: %s": "последнее обновление не удалось: %s",
  },
 }
 
@@ -426,9 +436,9 @@ def episode_id(fid, guid):
 def spoken(ms):
     """`47 min`, `1 h 12`, `12 s` — never `00:47:00`, and never a rounded `0 min`."""
     if ms < 60000:
-        return "%d s" % (max(0, ms) // 1000)
+        return _("%d s", max(0, ms) // 1000)
     minutes = (ms + 30000) // 60000
-    return "%d h %02d" % (minutes // 60, minutes % 60) if minutes >= 60 else "%d min" % minutes
+    return _("%d h %02d", minutes // 60, minutes % 60) if minutes >= 60 else _("%d min", minutes)
 
 
 _CHAPTER_HEAD = re.compile(r"^[\s\-–—*•>\[(]*(\d{1,2}:)?(\d{1,2}):(\d{2})[\s\-–—:•|)\]]*(.*)$")
@@ -495,9 +505,13 @@ def relative_date(ms):
         return _("today")
     if days == 1:
         return _("yesterday")
+    # Qt names the days and months in the interface's language, whatever the system's LC_TIME.
+    loc = QtCore.QLocale("en_GB" if LANG == "en" else LANG)
     if days < 7:
-        return then.strftime("%A").lower()
-    return then.strftime("%-d %b") if then.year == now.year else then.strftime("%-d %b %Y")
+        day = loc.dayName(then.isoweekday(), QtCore.QLocale.LongFormat)
+        return day if LANG == "de" else day.lower()     # a German weekday is a noun
+    return loc.toString(QtCore.QDate(then.year, then.month, then.day),
+                        "d MMM" if then.year == now.year else "d MMM yyyy")
 
 
 # ------------------------------------------------------------------------------------------
@@ -1087,13 +1101,17 @@ def ytdlp_path():
     return shutil.which("yt-dlp")
 
 
+class Told(RuntimeError):
+    """An error already worded for the user, in the interface's language: shown as it is."""
+
+
 def download_with_ytdlp(episode, on_progress, cancelled):
     """A YouTube entry is a page, not a file: yt-dlp finds the audio track and brings that down
     alone. It is the system's own yt-dlp, kept current by whoever keeps the system."""
     import subprocess
     exe = ytdlp_path()
     if not exe:
-        raise RuntimeError(_("yt-dlp is not installed: it is what fetches the audio of a video"))
+        raise Told(_("YouTube needs yt-dlp, which is not installed"))
     os.makedirs(AUDIO_DIR, exist_ok=True)
     stem = os.path.join(AUDIO_DIR, episode["id"])
     for name in os.listdir(AUDIO_DIR):
@@ -1528,7 +1546,7 @@ class SettingsDialog(QtWidgets.QDialog):
         self.colours.setCurrentIndex(0 if cfg.get("dark", True) else 1)
         form.addRow(_("colours"), self.colours)
         self.font = QtWidgets.QComboBox()
-        for key, label in (("sans", "sans-serif"), ("serif", "serif"), ("mono", "mono")):
+        for key, label in (("sans", _("sans-serif")), ("serif", _("serif")), ("mono", _("mono"))):
             self.font.addItem(label, key)
         self.font.setCurrentIndex(max(0, self.font.findData(cfg.get("font", "sans"))))
         form.addRow(_("font"), self.font)
@@ -1549,6 +1567,9 @@ class SettingsDialog(QtWidgets.QDialog):
         self.delete_played.setChecked(bool(cfg.get("delete_when_played", False)))
         form.addRow(_("delete once heard"), self.delete_played)
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        # No Qt translator is loaded: without these the buttons say OK / Cancel in every language.
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(_("ok"))
+        buttons.button(QtWidgets.QDialogButtonBox.Cancel).setText(_("cancel"))
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
@@ -1843,7 +1864,8 @@ class Main(QtWidgets.QMainWindow):
             rule.setFlags(QtCore.Qt.NoItemFlags)
             self.feeds_list.addItem(rule)
         for f in self.store.channels():
-            row(f.get("title") or f["url"], f["id"], self.store.unplayed(f["id"]), f.get("lastError"))
+            row(f.get("title") or f["url"], f["id"], self.store.unplayed(f["id"]),
+                _("last refresh failed: %s", f["lastError"]) if f.get("lastError") else None)
         self.feeds_list.blockSignals(False)
 
     def current_episodes(self):
@@ -1872,7 +1894,7 @@ class Main(QtWidgets.QMainWindow):
         if not episodes:
             hint = (_("no subscriptions yet. + a feed below finds a podcast by its name, or takes the address of its feed.") if not self.store.feeds
                     else _("no favourite yet.") if self.view == VIEW_FAVOURITES
-                    else _("nothing on this machine yet.") if self.view == VIEW_DOWNLOADED
+                    else _("nothing on this computer yet.") if self.view == VIEW_DOWNLOADED
                     else _("nothing here yet."))
             item = QtWidgets.QListWidgetItem(hint)
             item.setFlags(QtCore.Qt.NoItemFlags)
@@ -1983,7 +2005,7 @@ class Main(QtWidgets.QMainWindow):
             menu.addAction(_("remove from this computer"), lambda: self.remove_file(e))
         else:
             menu.addAction(_("download"), lambda: self.queue_download(e))
-        menu.addAction(_("no longer a favourite") if e.get("starred") else _("keep as a favourite"),
+        menu.addAction(_("remove from favourites") if e.get("starred") else _("keep as a favourite"),
                        lambda: self.star(e, not e.get("starred")))
         heard = e.get("state") == "PLAYED"
         menu.addAction(_("mark as unheard") if heard else _("mark as heard"),
@@ -2035,7 +2057,7 @@ class Main(QtWidgets.QMainWindow):
             if looks_like_youtube(url):
                 address, kind = youtube_feed(url), "YOUTUBE"
                 if not address:
-                    raise RuntimeError(_("no channel was found at that address"))
+                    raise Told(_("no channel was found at that address"))
             fid = feed_id(address)
             title, author, episodes = fetch_feed(address, fid, kind)
             return fid, address, title, author, episodes, kind
@@ -2043,7 +2065,8 @@ class Main(QtWidgets.QMainWindow):
         def done(result, error):
             self.set_busy("")
             if error:
-                self.say(_("that feed could not be read. %s", str(error)[:80]))
+                self.say(str(error) if isinstance(error, Told)
+                         else _("that feed could not be read. %s", str(error)[:80]))
                 return
             fid, url_, title, author, episodes, kind = result
             if self.store.feed(fid):
@@ -2088,7 +2111,7 @@ class Main(QtWidgets.QMainWindow):
         def done(result, error):
             self.set_busy("")
             if error:
-                self.say(str(error)[:120])
+                self.say(_("the refresh failed. %s", str(error)[:120]))
                 return
             for fid, parsed, failure in result:
                 if failure:
@@ -2143,7 +2166,8 @@ class Main(QtWidgets.QMainWindow):
         def done(path, error):
             self.downloading = None
             if error:
-                self.say(str(error)[:120])
+                self.say(str(error) if isinstance(error, Told)
+                         else _("the download failed. %s", str(error)[:120]))
                 print("download failed:", error, file=sys.stderr)
             elif path:
                 self.store.update_episode(eid, localPath=path, bytes=os.path.getsize(path))
@@ -2214,7 +2238,7 @@ class Main(QtWidgets.QMainWindow):
         def done(result, error):
             self.set_busy("")
             if error:
-                self.say(str(error)[:120])
+                self.say(_("the import failed. %s", str(error)[:120]))
                 return
             added = 0
             for fid, url, parsed in result:
