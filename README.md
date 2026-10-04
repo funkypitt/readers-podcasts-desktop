@@ -12,6 +12,7 @@ serveur : les abonnements voyagent en OPML, les réglages en JSON.
 - À droite : titre, date, durée, les chapitres quand les notes en donnent la liste (un clic y envoie le son), et les notes avec leurs liens.
 - En bas : la position (un clic s'y déplace), −5 s / ▶ / +10 s, la vitesse. Sous ⋯ : chercher, actualiser, ajouter un flux, importer et exporter, couleurs, réglages.
 - Une adresse YouTube (`@nom`, `/channel/…`, une liste de lecture) s'abonne comme un flux ; l'audio d'une vidéo est cherché par yt-dlp, s'il est installé.
+- Une chaîne YouTube n'annonce que ses quinze dernières vidéos : « charger plus d'épisodes », en bas de sa liste, en lit vingt-cinq de plus à chaque fois (par yt-dlp) ; une vidéo ainsi trouvée reçoit sa date et ses notes quand on l'ouvre. Les chaînes YouTube d'un fichier OPML (celui du téléphone ou d'une autre application) entrent comme des chaînes.
 - « Effacer une fois écouté » est inactif par défaut ; actif, il épargne les favoris, les épisodes mis par écrit sur le téléphone et les vidéos.
 - Le lien avec le téléphone : `abonnements.opml` et `reglages.json` sont la synchronisation. Les identifiants de flux et d'épisode sont calculés de la même manière des deux côtés, si bien qu'une position prise sur le téléphone retombe sur le bon épisode.
 - Les fichiers vivent dans `~/.local/share/readers-podcasts` (`feeds.json`, `feeds/<id>.json`, `audio/`), les réglages dans `~/.config/readers-podcasts/config.json`.

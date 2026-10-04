@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.1.2"
+VERSION = "1.2.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -65,6 +65,15 @@ VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES, VIEW_DOWNLOADED)
 
 STRINGS = {
  "fr": {
+  "load more episodes": "charger plus d'épisodes",
+  "the feed only carries the latest fifteen": "le flux ne porte que les quinze derniers",
+  "looking for the older ones…": "recherche des plus anciens…",
+  "nothing older here": "rien de plus ancien",
+  "%d older episodes added": "%d épisodes plus anciens ajoutés",
+  "the older episodes could not be loaded: %s": "les épisodes plus anciens n'ont pas pu être chargés : %s",
+  "this channel has no page to read": "cette chaîne n'a pas de page à lire",
+  "yt-dlp brought nothing back": "yt-dlp n'a rien rapporté",
+  "the words of this video are being fetched…": "les mots de cette vidéo arrivent…",
   "add a podcast": "ajouter un podcast",
   "a name, or a feed's address": "un nom, ou l'adresse d'un flux",
   "subscribe to this address": "s'abonner à cette adresse",
@@ -130,6 +139,15 @@ STRINGS = {
   "the import failed. %s": "l'import a échoué. %s", "last refresh failed: %s": "dernière actualisation échouée : %s",
  },
  "de": {
+  "load more episodes": "mehr Folgen laden",
+  "the feed only carries the latest fifteen": "der Feed enthält nur die letzten fünfzehn",
+  "looking for the older ones…": "ältere werden gesucht…",
+  "nothing older here": "nichts Älteres mehr",
+  "%d older episodes added": "%d ältere Folgen hinzugefügt",
+  "the older episodes could not be loaded: %s": "die älteren Folgen konnten nicht geladen werden: %s",
+  "this channel has no page to read": "dieser Kanal hat keine Seite zum Lesen",
+  "yt-dlp brought nothing back": "yt-dlp hat nichts zurückgebracht",
+  "the words of this video are being fetched…": "der Text zu diesem Video wird geholt…",
   "add a podcast": "Podcast hinzufügen",
   "a name, or a feed's address": "ein Name oder die Adresse eines Feeds",
   "subscribe to this address": "diese Adresse abonnieren",
@@ -195,6 +213,15 @@ STRINGS = {
   "the import failed. %s": "der Import ist fehlgeschlagen. %s", "last refresh failed: %s": "letzte Aktualisierung fehlgeschlagen: %s",
  },
  "es": {
+  "load more episodes": "cargar más episodios",
+  "the feed only carries the latest fifteen": "el canal solo trae los últimos quince",
+  "looking for the older ones…": "buscando los más antiguos…",
+  "nothing older here": "no hay nada más antiguo",
+  "%d older episodes added": "%d episodios más antiguos añadidos",
+  "the older episodes could not be loaded: %s": "no se pudieron cargar los episodios más antiguos: %s",
+  "this channel has no page to read": "este canal no tiene página que leer",
+  "yt-dlp brought nothing back": "yt-dlp no devolvió nada",
+  "the words of this video are being fetched…": "se está buscando el texto de este vídeo…",
   "add a podcast": "añadir un podcast",
   "a name, or a feed's address": "un nombre o la dirección de una fuente",
   "subscribe to this address": "suscribirse a esta dirección",
@@ -260,6 +287,15 @@ STRINGS = {
   "the import failed. %s": "la importación falló. %s", "last refresh failed: %s": "la última actualización falló: %s",
  },
  "pt": {
+  "load more episodes": "carregar mais episódios",
+  "the feed only carries the latest fifteen": "o feed só traz os últimos quinze",
+  "looking for the older ones…": "à procura dos mais antigos…",
+  "nothing older here": "nada mais antigo",
+  "%d older episodes added": "%d episódios mais antigos adicionados",
+  "the older episodes could not be loaded: %s": "não foi possível carregar os episódios mais antigos: %s",
+  "this channel has no page to read": "este canal não tem página para ler",
+  "yt-dlp brought nothing back": "o yt-dlp não trouxe nada",
+  "the words of this video are being fetched…": "o texto deste vídeo está a chegar…",
   "add a podcast": "adicionar um podcast",
   "a name, or a feed's address": "um nome ou o endereço de uma fonte",
   "subscribe to this address": "subscrever este endereço",
@@ -325,6 +361,15 @@ STRINGS = {
   "the import failed. %s": "a importação falhou. %s", "last refresh failed: %s": "a última atualização falhou: %s",
  },
  "ru": {
+  "load more episodes": "загрузить ещё выпуски",
+  "the feed only carries the latest fifteen": "лента содержит только последние пятнадцать",
+  "looking for the older ones…": "ищем более старые…",
+  "nothing older here": "старее ничего нет",
+  "%d older episodes added": "добавлено более старых выпусков: %d",
+  "the older episodes could not be loaded: %s": "не удалось загрузить более старые выпуски: %s",
+  "this channel has no page to read": "у этого канала нет страницы для чтения",
+  "yt-dlp brought nothing back": "yt-dlp ничего не вернул",
+  "the words of this video are being fetched…": "текст к этому видео загружается…",
   "add a podcast": "добавить подкаст",
   "a name, or a feed's address": "название или адрес ленты",
   "subscribe to this address": "подписаться по этому адресу",
@@ -870,6 +915,23 @@ class Store:
             self.episodes = [e for e in self.episodes if e["feedId"] != fid] + trimmed
             self._save_episodes(fid)
 
+    def add_older(self, fid, older):
+        """Videos reached past the feed's fifteen: kept, and the channel's keepCount raised so
+        that the next refresh does not trim them away again (the phone's addOlder)."""
+        with self.lock:
+            known = [e for e in self.episodes if e["feedId"] == fid]
+            ids = {e["id"] for e in known}
+            fresh = _unique([dict(e, feedId=fid) for e in older if e["id"] not in ids])
+            if not fresh:
+                return 0
+            self.episodes += fresh
+            feed = self.feed(fid)
+            if feed:
+                feed["keepCount"] = max(feed.get("keepCount", 50), len(known) + len(fresh) + 10)
+                self._save_feeds()
+            self._save_episodes(fid)
+            return len(fresh)
+
     # ---- json ----
 
     def _load_feeds(self):
@@ -1168,6 +1230,78 @@ def download_with_ytdlp(episode, on_progress, cancelled):
         if name.startswith(episode["id"] + ".") and not name.endswith(".part"):
             return os.path.join(AUDIO_DIR, name)
     raise RuntimeError(" ".join(tail)[:300] or "yt-dlp")
+
+
+def resolve_address(url):
+    """What an address pasted or imported stands for: a feed and its kind. A YouTube address
+    becomes the channel's Atom feed, which is what the phone stores too (same id on both)."""
+    if looks_like_youtube(url):
+        return youtube_feed(url), "YOUTUBE"
+    return url, "RSS"
+
+
+def youtube_page_of(feed_url):
+    """The page that lists a channel's videos, from the address of its feed (Extractor.kt)."""
+    m = re.search(r"channel_id=([\w-]+)", feed_url)
+    if m:
+        return "https://www.youtube.com/channel/%s/videos" % m.group(1)
+    m = re.search(r"playlist_id=([\w-]+)", feed_url)
+    if m:
+        return "https://www.youtube.com/playlist?list=%s" % m.group(1)
+    return None
+
+
+def ytdlp_json(args):
+    """One `yt-dlp -J` run, its JSON; the last lines of its complaint otherwise."""
+    import subprocess
+    exe = ytdlp_path()
+    if not exe:
+        raise Told(_("YouTube needs yt-dlp, which is not installed"))
+    proc = subprocess.run([exe, "-J", "--no-warnings"] + args, capture_output=True, text=True, timeout=180)
+    text = (proc.stdout or "").strip()
+    if not text:
+        tail = " ".join((proc.stderr or "").strip().splitlines()[-3:])
+        raise RuntimeError(tail[:300] or _("yt-dlp brought nothing back"))
+    return json.loads(text)
+
+
+def ytdlp_list_channel(feed_url, start, count):
+    """The videos of a channel, [start, start+count) in the order of its page, newest first —
+    the feed only ever carries fifteen. A flat listing: titles and lengths, no dates (yt-dlp's
+    approximate ones came back identical for every video, which is worse than none)."""
+    page = youtube_page_of(feed_url)
+    if not page:
+        raise Told(_("this channel has no page to read"))
+    data = ytdlp_json(["--flat-playlist", "--playlist-start", str(start),
+                       "--playlist-end", str(start + count - 1), page])
+    out = []
+    for o in data.get("entries") or []:
+        if o and o.get("id"):
+            out.append((o["id"], o.get("title") or o["id"], int((o.get("duration") or 0) * 1000)))
+    return out
+
+
+def ytdlp_describe(url):
+    """The words under one video and its publication date (0 when unknown): what a flat
+    listing leaves out, fetched when such a video is opened. Nothing is downloaded."""
+    o = ytdlp_json(["--skip-download", "--no-playlist", url])
+    day = o.get("upload_date") or ""
+    try:
+        published = int(datetime.strptime(day, "%Y%m%d").timestamp() * 1000)
+    except ValueError:
+        published = 0
+    return (o.get("description") or "", published)
+
+
+def older_episode(fid, video_id, title, duration_ms):
+    """The same shape the feed gives a video (Atom id yt:video:ID), or it would arrive twice.
+    No date: the row shows the length instead of a date that lies."""
+    return {
+        "id": episode_id(fid, "yt:video:" + video_id), "title": title, "published": 0,
+        "mediaUrl": "https://www.youtube.com/watch?v=" + video_id, "mime": "audio/*", "bytes": 0,
+        "durationMs": duration_ms, "localPath": "", "positionMs": 0, "state": "NEW", "lastPlayed": 0,
+        "starred": False, "description": "",
+    }
 
 
 class Worker(QtCore.QObject):
@@ -1713,6 +1847,7 @@ class Main(QtWidgets.QMainWindow):
         self.episodes_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.episodes_list.customContextMenuRequested.connect(self.episode_menu)
         self.episodes_list.itemActivated.connect(self.play_selected)
+        self.episodes_list.itemClicked.connect(self.on_episode_clicked)
         self.episodes_list.itemDoubleClicked.connect(self.play_selected)
         # What the selected episode is about, beside the list: one reads before one listens, and a
         # window has the room the telephone had to find by opening another screen.
@@ -1834,6 +1969,9 @@ class Main(QtWidgets.QMainWindow):
                                  % (ms, link, clock(ms), html.escape(title)) for ms, title in chapters))
             parts.append('<br>')
         notes = linkify(e.get("description", ""), duration, times=True).replace("<a href=", "<a %s href=" % link)
+        if not e.get("description") and is_youtube_episode(e) and ytdlp_path():
+            notes = '<span style="color:%s;">%s</span>' % (dim, html.escape(_("the words of this video are being fetched…")))
+            self.describe_later(e)
         parts.append('<div style="line-height:140%%;">%s</div>' % notes)
         at = self.details.verticalScrollBar().value() if getattr(self, "_detail_id", None) == e["id"] else 0
         self._detail_id = e["id"]
@@ -1842,6 +1980,30 @@ class Main(QtWidgets.QMainWindow):
 
     def is_playing(self):
         return bool(self.player) and self.player.state() == QtMultimedia.QMediaPlayer.PlayingState
+
+    def describe_later(self, e):
+        """A video reached by « load more » comes with a title and a length only: its words —
+        and the times in them — and its date are asked for once, when it is opened."""
+        asked = self.__dict__.setdefault("_described", set())
+        if e["id"] in asked:
+            return
+        asked.add(e["id"])
+        eid, url = e["id"], e["mediaUrl"]
+
+        def done(result, error):
+            if error or not result:
+                return
+            description, published = result
+            fields = {"description": description[:10000]}
+            current = self.store.episode(eid) or {}
+            if not current.get("published") and published:
+                fields["published"] = published
+            self.store.update_episode(eid, **fields)
+            self.refresh_episodes_list()
+            if self.selected_id() == eid:
+                self.refresh_details()
+
+        self.run(lambda _progress: ytdlp_describe(url), done)
 
     def on_detail_link(self, url):
         target = url.toString()
@@ -1930,6 +2092,7 @@ class Main(QtWidgets.QMainWindow):
             item = QtWidgets.QListWidgetItem(hint)
             item.setFlags(QtCore.Qt.NoItemFlags)
             self.episodes_list.addItem(item)
+            self.add_older_row(feed)
             return
         mixed = feed is None
         for e in episodes:
@@ -1939,6 +2102,47 @@ class Main(QtWidgets.QMainWindow):
             self.episodes_list.addItem(item)
             if e["id"] == keep:
                 item.setSelected(True)
+        self.add_older_row(feed)
+
+    def add_older_row(self, feed):
+        """A YouTube feed only ever carries the latest fifteen: the last row of such a channel
+        walks its page for more, twenty-five at a time."""
+        if feed and looks_like_youtube(feed.get("url", "")) and not self.busy:
+            item = QtWidgets.QListWidgetItem(_("load more episodes"))
+            item.setData(QtCore.Qt.UserRole, "older:" + feed["id"])
+            item.setData(QtCore.Qt.UserRole + 1, _("the feed only carries the latest fifteen"))
+            self.episodes_list.addItem(item)
+
+    def load_older(self, feed):
+        known = len(self.store.episodes_of(feed["id"]))
+        self.set_busy(_("looking for the older ones…"))
+
+        def job(_progress):
+            listed = ytdlp_list_channel(feed["url"], known + 1, 25)
+            # The feed names a video by its Atom id; an address already known is the surer
+            # way to spot a repeat should that ever differ.
+            seen = {e["mediaUrl"] for e in self.store.episodes_of(feed["id"])}
+            return [older_episode(feed["id"], vid, title, ms) for vid, title, ms in listed
+                    if "https://www.youtube.com/watch?v=" + vid not in seen]
+
+        def done(result, error):
+            self.set_busy("")
+            if error:
+                self.say(str(error) if isinstance(error, Told)
+                         else _("the older episodes could not be loaded: %s", str(error)[:120]))
+                return
+            n = self.store.add_older(feed["id"], result)
+            self.refresh_all_lists()
+            self.say(_("%d older episodes added", n) if n else _("nothing older here"))
+
+        self.run(job, done)
+
+    def on_episode_clicked(self, item):
+        target = item.data(QtCore.Qt.UserRole) or ""
+        if isinstance(target, str) and target.startswith("older:"):
+            feed = self.store.feed(target[6:])
+            if feed:
+                self.load_older(feed)
 
     def status_of(self, e, with_feed):
         """The one line under a title: the channel when the list mixes them, when it came out,
@@ -2084,11 +2288,9 @@ class Main(QtWidgets.QMainWindow):
         self.set_busy(_("reading the feed…"))
 
         def job(_progress):
-            address, kind = url, "RSS"
-            if looks_like_youtube(url):
-                address, kind = youtube_feed(url), "YOUTUBE"
-                if not address:
-                    raise Told(_("no channel was found at that address"))
+            address, kind = resolve_address(url)
+            if not address:
+                raise Told(_("no channel was found at that address"))
             fid = feed_id(address)
             title, author, episodes = fetch_feed(address, fid, kind)
             return fid, address, title, author, episodes, kind
@@ -2134,7 +2336,8 @@ class Main(QtWidgets.QMainWindow):
             out = []
             for f in feeds:
                 try:
-                    out.append((f["id"], fetch_feed(f["url"], f["id"], f.get("kind", "RSS")), None))
+                    kind = "YOUTUBE" if looks_like_youtube(f["url"]) else f.get("kind", "RSS")
+                    out.append((f["id"], fetch_feed(f["url"], f["id"], kind), None))
                 except Exception as exc:
                     out.append((f["id"], None, str(exc)[:120]))
             return out
@@ -2259,11 +2462,16 @@ class Main(QtWidgets.QMainWindow):
         def job(_progress):
             out = []
             for url, title in fresh:
-                fid = feed_id(url)
                 try:
-                    out.append((fid, url, fetch_feed(url, fid, "RSS")))
+                    # A YouTube channel in the file (the phone writes its Atom feed; Podcast
+                    # Addict may write its page) is read as a channel, not as a podcast feed.
+                    address, kind = resolve_address(url)
+                    if not address:
+                        raise Told(_("no channel was found at that address"))
+                    fid = feed_id(address)
+                    out.append((fid, address, kind, title, fetch_feed(address, fid, kind)))
                 except Exception:
-                    out.append((fid, url, None))
+                    out.append((feed_id(url), url, "RSS", title, None))
             return out
 
         def done(result, error):
@@ -2272,12 +2480,12 @@ class Main(QtWidgets.QMainWindow):
                 self.say(_("the import failed. %s", str(error)[:120]))
                 return
             added = 0
-            for fid, url, parsed in result:
-                if not parsed:
+            for fid, url, kind, given, parsed in result:
+                if not parsed or self.store.feed(fid):
                     continue
                 title, author, episodes = parsed
-                self.store.add_feed({"id": fid, "url": url, "title": title or url, "author": author,
-                                     "kind": "RSS", "addedAt": int(datetime.now().timestamp() * 1000),
+                self.store.add_feed({"id": fid, "url": url, "title": title or given or url, "author": author,
+                                     "kind": kind, "addedAt": int(datetime.now().timestamp() * 1000),
                                      "lastFetch": int(datetime.now().timestamp() * 1000),
                                      "autoDownload": False, "keepCount": 50, "lastError": ""})
                 self.store.merge(fid, episodes)
@@ -2387,6 +2595,8 @@ class Main(QtWidgets.QMainWindow):
 
     def play_selected(self, item=None):
         e = self.store.episode(item.data(QtCore.Qt.UserRole)) if item else self.selected_episode()
+        if item and str(item.data(QtCore.Qt.UserRole) or "").startswith("older:"):
+            return
         if e:
             self.play(e)
 
