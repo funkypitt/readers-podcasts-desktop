@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.2.1"
+VERSION = "1.3.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -125,6 +125,13 @@ STRINGS = {
   "settings exported": "réglages exportés", "settings imported": "réglages importés",
   "that file could not be read": "ce fichier n'a pas pu être lu", "could not write the file": "écriture impossible",
   "%d feeds added": "%d flux ajoutés",
+  "every subscription in that file is already here": "tous les abonnements de ce fichier sont déjà ici",
+  "reading the feeds: %d of %d": "lecture des flux : %d sur %d",
+  "%d feeds added, %d could not be read": "%d flux ajoutés, %d n'ont pas pu être lus",
+  "season %d": "saison %d",
+  "other episodes": "autres épisodes",
+  "%d episodes": "%d épisodes",
+  "%d unheard": "%d à écouter",
   "settings": "réglages", "colours": "couleurs", "white on black": "blanc sur noir",
   "black on white": "noir sur blanc", "text size": "taille du texte", "font": "police",
   "refresh on opening": "actualiser à l'ouverture", "delete once heard": "effacer une fois écouté",
@@ -199,6 +206,13 @@ STRINGS = {
   "settings exported": "Einstellungen exportiert", "settings imported": "Einstellungen importiert",
   "that file could not be read": "diese Datei konnte nicht gelesen werden", "could not write the file": "Schreiben nicht möglich",
   "%d feeds added": "%d Feeds hinzugefügt",
+  "every subscription in that file is already here": "alle Abos dieser Datei sind schon hier",
+  "reading the feeds: %d of %d": "Feeds werden gelesen: %d von %d",
+  "%d feeds added, %d could not be read": "%d Feeds hinzugefügt, %d konnten nicht gelesen werden",
+  "season %d": "Staffel %d",
+  "other episodes": "weitere Folgen",
+  "%d episodes": "%d Folgen",
+  "%d unheard": "%d ungehört",
   "settings": "Einstellungen", "colours": "Farben", "white on black": "weiss auf schwarz",
   "black on white": "schwarz auf weiss", "text size": "Textgrösse", "font": "Schrift",
   "refresh on opening": "beim Öffnen aktualisieren", "delete once heard": "nach dem Hören löschen",
@@ -273,6 +287,13 @@ STRINGS = {
   "settings exported": "ajustes exportados", "settings imported": "ajustes importados",
   "that file could not be read": "no se pudo leer ese archivo", "could not write the file": "no se pudo escribir",
   "%d feeds added": "%d fuentes añadidas",
+  "every subscription in that file is already here": "todas las suscripciones de ese archivo ya están aquí",
+  "reading the feeds: %d of %d": "leyendo las fuentes: %d de %d",
+  "%d feeds added, %d could not be read": "%d fuentes añadidas, %d no se pudieron leer",
+  "season %d": "temporada %d",
+  "other episodes": "otros episodios",
+  "%d episodes": "%d episodios",
+  "%d unheard": "%d sin escuchar",
   "settings": "ajustes", "colours": "colores", "white on black": "blanco sobre negro",
   "black on white": "negro sobre blanco", "text size": "tamaño del texto", "font": "tipografía",
   "refresh on opening": "actualizar al abrir", "delete once heard": "borrar una vez escuchado",
@@ -347,6 +368,13 @@ STRINGS = {
   "settings exported": "definições exportadas", "settings imported": "definições importadas",
   "that file could not be read": "não foi possível ler esse ficheiro", "could not write the file": "não foi possível escrever",
   "%d feeds added": "%d fontes adicionadas",
+  "every subscription in that file is already here": "todas as subscrições desse ficheiro já estão aqui",
+  "reading the feeds: %d of %d": "a ler as fontes: %d de %d",
+  "%d feeds added, %d could not be read": "%d fontes adicionadas, %d não puderam ser lidas",
+  "season %d": "temporada %d",
+  "other episodes": "outros episódios",
+  "%d episodes": "%d episódios",
+  "%d unheard": "%d por ouvir",
   "settings": "definições", "colours": "cores", "white on black": "branco sobre preto",
   "black on white": "preto sobre branco", "text size": "tamanho do texto", "font": "tipo de letra",
   "refresh on opening": "atualizar ao abrir", "delete once heard": "apagar depois de ouvido",
@@ -421,6 +449,13 @@ STRINGS = {
   "settings exported": "настройки экспортированы", "settings imported": "настройки импортированы",
   "that file could not be read": "этот файл не удалось прочитать", "could not write the file": "не удалось записать файл",
   "%d feeds added": "добавлено лент: %d",
+  "every subscription in that file is already here": "все подписки из этого файла уже здесь",
+  "reading the feeds: %d of %d": "чтение лент: %d из %d",
+  "%d feeds added, %d could not be read": "добавлено лент: %d, не удалось прочитать: %d",
+  "season %d": "сезон %d",
+  "other episodes": "другие выпуски",
+  "%d episodes": "выпусков: %d",
+  "%d unheard": "не прослушано: %d",
   "settings": "настройки", "colours": "цвета", "white on black": "белое на чёрном",
   "black on white": "чёрное на белом", "text size": "размер текста", "font": "шрифт",
   "refresh on opening": "обновлять при открытии", "delete once heard": "удалять после прослушивания",
@@ -653,14 +688,16 @@ def _date(raw):
 
 
 def parse_feed(fid, kind, data):
-    """Returns (title, author, [episode dicts]). An item without playable media is not an
-    episode; a YouTube entry points at its page, which is what yt-dlp would be handed."""
+    """Returns (title, author, [episode dicts], serial). An item without playable media is not
+    an episode; a YouTube entry points at its page, which is what yt-dlp would be handed.
+    `serial` is the feed saying it is meant to be heard from its first episode on."""
     root = ET.fromstring(data)
     items = [n for n in root.iter() if _local(n.tag) in ("item", "entry")]
     # Atom repeats <title> and <author> inside every entry: only what lies outside one belongs
     # to the feed itself.
     within = {id(sub) for item in items for sub in item.iter()}
     title = author = ""
+    serial = False
     for node in root.iter():
         if id(node) in within:
             continue
@@ -669,8 +706,18 @@ def parse_feed(fid, kind, data):
             title = (node.text or "").strip()
         elif tag in ("managingEditor", "name") and not author:
             author = (node.text or "").strip()
+        elif tag == "type" and (node.text or "").strip().lower() == "serial":
+            serial = True
     episodes = [e for e in (_build(fid, kind, item) for item in items) if e]
-    return title, author, _unique(episodes)
+    return title, author, _unique(episodes), serial
+
+
+def _number(raw):
+    """A season or an episode number as feeds write it: `3`, ` 03 `, sometimes `3.0`."""
+    try:
+        return max(0, int(float((raw or "").strip())))
+    except ValueError:
+        return 0
 
 
 def _unique(episodes):
@@ -690,6 +737,8 @@ def _build(fid, kind, item):
     title = guid = media = mime = link = description = ""
     published = duration = 0
     size = 0
+    season = number = 0
+    season_name = ""
     for node in item.iter():
         tag = _local(node.tag)
         text = (node.text or "").strip()
@@ -720,6 +769,12 @@ def _build(fid, kind, item):
                 link = text
         elif tag == "duration" and not duration:
             duration = _duration(text)
+        elif tag == "season" and not season:
+            # <itunes:season> carries a number; <podcast:season> may give it a name as well.
+            season = _number(text)
+            season_name = (node.get("name") or "").strip()
+        elif tag == "episode" and not number:
+            number = _number(text)
         elif tag in ("description", "summary") and not description:
             description = strip_html(text)
     if kind == "YOUTUBE" and link:
@@ -734,7 +789,53 @@ def _build(fid, kind, item):
         "mediaUrl": media, "mime": mime or "audio/*", "bytes": size, "durationMs": duration,
         "localPath": "", "positionMs": 0, "state": "NEW", "lastPlayed": 0, "starred": False,
         "description": description[:10000],
+        "season": season, "seasonName": season_name, "number": number,
     }
+
+
+# ---- seasons: the phone's Seasons.kt, rule for rule ----
+
+def in_order(episodes, serial):
+    """The episodes of one channel in the order it means them to be heard: a serial from its
+    first episode on, anything else the latest first."""
+    if serial:
+        return sorted(episodes, key=lambda e: (e.get("number", 0) <= 0, e.get("number", 0), e["published"]))
+    return sorted(episodes, key=lambda e: e["published"], reverse=True)
+
+
+def shelves(episodes, serial):
+    """The seasons of one channel, as [(season, name, [episodes])] — or [] when the feed numbers
+    no season, or only one, in which case headings would say nothing.
+
+    A serial is read from season 1 down; a show that merely numbers its years has the current
+    season at the top. What carries no season (a trailer, an extra) comes last, as season 0."""
+    groups = {}
+    for e in episodes:
+        groups.setdefault(e.get("season", 0), []).append(e)
+    if len([s for s in groups if s > 0]) < 1 or len(groups) < 2:
+        return []
+    numbered = sorted((s for s in groups if s > 0), reverse=not serial)
+    out = []
+    for s in numbered + ([0] if 0 in groups else []):
+        rows = in_order(groups[s], serial)
+        name = next((e.get("seasonName") for e in rows if e.get("seasonName")), "")
+        out.append((s, name, rows))
+    return out
+
+
+def season_label(season, name):
+    if season <= 0:
+        return _("other episodes")
+    return _("season %d", season) + (" · " + name if name else "")
+
+
+def open_season(found, episodes):
+    """The season to show open when nothing was chosen: the one last listened to, or the first
+    on the page."""
+    heard = [e for e in episodes if e.get("lastPlayed", 0) > 0]
+    if heard:
+        return max(heard, key=lambda e: e["lastPlayed"]).get("season", 0)
+    return found[0][0] if found else 0
 
 
 # ---- OPML and the backup file, byte for byte what the phone writes ----
@@ -751,22 +852,48 @@ def opml_export(feeds):
 
 
 def _xml_escape(s):
+    # What XML does not allow at all cannot be escaped, only left out.
+    s = _NOT_XML.sub("", s)
     return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
              .replace('"', "&quot;").replace("'", "&apos;"))
 
 
+_OUTLINE = re.compile(r"<outline\b([^>]*)>", re.I | re.S)
+_ATTRIBUTE = re.compile(r"""([\w:.-]+)\s*=\s*("([^"]*)"|'([^']*)')""", re.S)
+_NOT_XML = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def _outlines(data):
+    """Every <outline> of an OPML file as a dict of its attributes, names in lower case.
+
+    Read as XML when the file is XML. A good many are not quite: a control character copied
+    from a feed's title, an unescaped & in an address, a few bytes left over after </opml> by
+    a program that wrote over a longer file. A strict reader refuses the whole file for any of
+    these, so what it refuses is read tag by tag instead — the subscriptions are all there."""
+    if isinstance(data, bytes):
+        text = data.decode("utf-8-sig", "replace")
+    else:
+        text = data.lstrip("\ufeff")
+    text = _NOT_XML.sub("", text)
+    try:
+        root = ET.fromstring(text.encode("utf-8"))
+        return [{k.lower(): v for k, v in node.attrib.items()}
+                for node in root.iter() if _local(node.tag).lower() == "outline"]
+    except ET.ParseError:
+        return [{m.group(1).lower(): html.unescape(m.group(3) if m.group(3) is not None else m.group(4))
+                 for m in _ATTRIBUTE.finditer(tag.group(1))}
+                for tag in _OUTLINE.finditer(text)]
+
+
 def opml_parse(data):
-    root = ET.fromstring(data)
     lines = []
     seen = set()
-    for node in root.iter():
-        if _local(node.tag).lower() != "outline":
+    for node in _outlines(data):
+        url = (node.get("xmlurl") or "").strip()
+        if not url or url in seen:
             continue
-        url = node.get("xmlUrl") or node.get("xmlurl")
-        if not url or url.strip() in seen:
-            continue
-        seen.add(url.strip())
-        lines.append((url.strip(), (node.get("title") or node.get("text") or url).strip()))
+        seen.add(url)
+        lines.append((url, (node.get("title") or node.get("text") or url).strip()))
     return lines
 
 
@@ -895,6 +1022,10 @@ class Store:
         brings back its own: the title, the date, the media."""
         with self.lock:
             keep = (self.feed(fid) or {}).get("keepCount", 50)
+            # A serial is a catalogue and not the news: keeping its latest fifty would throw
+            # away the very episodes one is meant to begin with.
+            if (self.feed(fid) or {}).get("serial"):
+                keep = max(keep, len(fresh))
             mine = {e["id"]: e for e in self.episodes if e["feedId"] == fid}
             merged = []
             for new in fresh:
@@ -980,6 +1111,13 @@ class Store:
 # ------------------------------------------------------------------------------------------
 # The network, off the interface thread
 # ------------------------------------------------------------------------------------------
+
+def new_feed(fid, url, title, author, kind, serial):
+    now = int(datetime.now().timestamp() * 1000)
+    return {"id": fid, "url": url, "title": title, "author": author, "kind": kind, "addedAt": now,
+            "lastFetch": now, "autoDownload": False, "keepCount": 50, "lastError": "",
+            "serial": bool(serial)}
+
 
 def fetch_feed(url, fid, kind):
     r = requests.get(url, headers={"User-Agent": AGENT}, timeout=30)
@@ -1478,7 +1616,8 @@ class EpisodeDelegate(QtWidgets.QStyledItemDelegate):
         self.big, self.small = QtGui.QFont(), QtGui.QFont()
 
     def sizeHint(self, option, index):
-        two = index.data(QtCore.Qt.UserRole) is not None
+        key = index.data(QtCore.Qt.UserRole)
+        two = key is not None and not str(key).startswith("season:")
         lines = QtGui.QFontMetrics(self.big).height() * (2 if two else 1)
         return QtCore.QSize(100, lines + QtGui.QFontMetrics(self.small).height() + 22)
 
@@ -1766,6 +1905,7 @@ class Main(QtWidgets.QMainWindow):
         self.download_percent = 0
         self.cancel_download = False
         self.busy = ""               # a line at the top while something is happening
+        self.open_seasons = {}       # channel id -> the seasons shown open, for this sitting
 
         self.setWindowTitle("Reader's Podcasts")
         self.resize(1000, 680)
@@ -2095,13 +2235,36 @@ class Main(QtWidgets.QMainWindow):
             self.add_older_row(feed)
             return
         mixed = feed is None
-        for e in episodes:
+
+        def row(e):
             item = QtWidgets.QListWidgetItem(e["title"])
             item.setData(QtCore.Qt.UserRole, e["id"])
             item.setData(QtCore.Qt.UserRole + 1, self.status_of(e, mixed))
             self.episodes_list.addItem(item)
             if e["id"] == keep:
                 item.setSelected(True)
+
+        # A channel cut into seasons shows them as headings, one open at a time unless more
+        # are asked for; a search runs through all of them, so it is shown flat.
+        found = shelves(episodes, feed.get("serial")) if feed and not self.filter_text.strip() else []
+        if found:
+            opened = self.open_seasons.setdefault(feed["id"], {open_season(found, episodes)})
+            for season, name, rows in found:
+                is_open = season in opened
+                item = QtWidgets.QListWidgetItem(("▾ " if is_open else "▸ ") + season_label(season, name))
+                item.setData(QtCore.Qt.UserRole, "season:%d" % season)
+                unheard = len([e for e in rows if e.get("state") != "PLAYED"])
+                item.setData(QtCore.Qt.UserRole + 1, " · ".join(
+                    [_("%d episodes", len(rows))] + ([_("%d unheard", unheard)] if 0 < unheard < len(rows) else [])))
+                self.episodes_list.addItem(item)
+                if keep == "season:%d" % season:
+                    item.setSelected(True)
+                if is_open:
+                    for e in rows:
+                        row(e)
+        else:
+            for e in (in_order(episodes, True) if feed and feed.get("serial") and not self.filter_text.strip() else episodes):
+                row(e)
         self.add_older_row(feed)
 
     def add_older_row(self, feed):
@@ -2139,7 +2302,11 @@ class Main(QtWidgets.QMainWindow):
 
     def on_episode_clicked(self, item):
         target = item.data(QtCore.Qt.UserRole) or ""
-        if isinstance(target, str) and target.startswith("older:"):
+        if isinstance(target, str) and target.startswith("season:") and self.store.feed(self.view):
+            opened = self.open_seasons.setdefault(self.view, set())
+            opened ^= {int(target[7:])}
+            self.refresh_episodes_list()
+        elif isinstance(target, str) and target.startswith("older:"):
             feed = self.store.feed(target[6:])
             if feed:
                 self.load_older(feed)
@@ -2292,8 +2459,8 @@ class Main(QtWidgets.QMainWindow):
             if not address:
                 raise Told(_("no channel was found at that address"))
             fid = feed_id(address)
-            title, author, episodes = fetch_feed(address, fid, kind)
-            return fid, address, title, author, episodes, kind
+            title, author, episodes, serial = fetch_feed(address, fid, kind)
+            return fid, address, title, author, episodes, kind, serial
 
         def done(result, error):
             self.set_busy("")
@@ -2301,14 +2468,11 @@ class Main(QtWidgets.QMainWindow):
                 self.say(str(error) if isinstance(error, Told)
                          else _("that feed could not be read. %s", str(error)[:80]))
                 return
-            fid, url_, title, author, episodes, kind = result
+            fid, url_, title, author, episodes, kind, serial = result
             if self.store.feed(fid):
                 self.open_feed(fid)
                 return
-            self.store.add_feed({"id": fid, "url": url_, "title": title or url_, "author": author,
-                                 "kind": kind, "addedAt": int(datetime.now().timestamp() * 1000),
-                                 "lastFetch": int(datetime.now().timestamp() * 1000),
-                                 "autoDownload": False, "keepCount": 50, "lastError": ""})
+            self.store.add_feed(new_feed(fid, url_, title or url_, author, kind, serial))
             self.store.merge(fid, episodes)
             self.view = fid
             self.cfg["view"] = fid
@@ -2351,7 +2515,8 @@ class Main(QtWidgets.QMainWindow):
                 if failure:
                     self.store.update_feed(fid, lastError=failure)
                     continue
-                title, author, episodes = parsed
+                title, author, episodes, serial = parsed
+                self.store.update_feed(fid, serial=serial)
                 self.store.merge(fid, episodes)
                 feed = self.store.feed(fid) or {}
                 self.store.update_feed(
@@ -2453,47 +2618,67 @@ class Main(QtWidgets.QMainWindow):
         except Exception:
             self.say(_("that file could not be read"))
             return
-        fresh = [(url, title) for url, title in lines if not self.store.feed(feed_id(url))]
-        if not fresh:
+        if not lines:
             self.say(_("no subscription in that file"))
             return
-        self.set_busy(_("reading the feed…"))
+        fresh = [(url, title) for url, title in lines if not self.store.feed(feed_id(url))]
+        if not fresh:
+            self.say(_("every subscription in that file is already here"))
+            return
+        self.bring_in(fresh)
 
-        def job(_progress):
-            out = []
-            for url, title in fresh:
-                try:
-                    # A YouTube channel in the file (the phone writes its Atom feed; Podcast
-                    # Addict may write its page) is read as a channel, not as a podcast feed.
-                    address, kind = resolve_address(url)
-                    if not address:
-                        raise Told(_("no channel was found at that address"))
-                    fid = feed_id(address)
-                    out.append((fid, address, kind, title, fetch_feed(address, fid, kind)))
-                except Exception:
-                    out.append((feed_id(url), url, "RSS", title, None))
-            return out
+    def bring_in(self, lines, then=None):
+        """Subscriptions named in a file, fetched four at a time and added as each one answers:
+        a hundred and forty feeds read one after the other, and kept back until the last had
+        answered, was minutes of a window that showed nothing and lost everything if closed.
+        `lines` are (address, title); `then` runs once they are all in."""
+        total = len(lines)
+        self.set_busy(_("reading the feeds: %d of %d", 0, total))
 
-        def done(result, error):
+        def one(line):
+            url, given = line
+            try:
+                # A YouTube channel in the file (the phone writes its Atom feed; Podcast
+                # Addict may write its page) is read as a channel, not as a podcast feed.
+                address, kind = resolve_address(normalise(url))
+                if not address:
+                    return False
+                fid = feed_id(address)
+                if self.store.feed(fid):
+                    return True
+                title, author, episodes, serial = fetch_feed(address, fid, kind)
+                self.store.add_feed(new_feed(fid, address, title or given or address, author, kind, serial))
+                self.store.merge(fid, episodes)
+                return True
+            except Exception:
+                return False
+
+        def job(progress):
+            added = seen = 0
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                for ok in pool.map(one, lines):
+                    seen += 1
+                    added += 1 if ok else 0
+                    progress(seen)
+            return added
+
+        def progress(seen):
+            self.busy = _("reading the feeds: %d of %d", seen, total)
+            self.refresh_all_lists()
+
+        def done(added, error):
             self.set_busy("")
+            if then:
+                then()
+            self.refresh_all_lists()
             if error:
                 self.say(_("the import failed. %s", str(error)[:120]))
-                return
-            added = 0
-            for fid, url, kind, given, parsed in result:
-                if not parsed or self.store.feed(fid):
-                    continue
-                title, author, episodes = parsed
-                self.store.add_feed({"id": fid, "url": url, "title": title or given or url, "author": author,
-                                     "kind": kind, "addedAt": int(datetime.now().timestamp() * 1000),
-                                     "lastFetch": int(datetime.now().timestamp() * 1000),
-                                     "autoDownload": False, "keepCount": 50, "lastError": ""})
-                self.store.merge(fid, episodes)
-                added += 1
-            self.refresh_all_lists()
-            self.say(_("%d feeds added", added))
+            elif added == total:
+                self.say(_("%d feeds added", added))
+            else:
+                self.say(_("%d feeds added, %d could not be read", added, total - added))
 
-        self.run(job, done)
+        self.run(job, done, progress)
 
     def export_settings(self):
         path, _sel = QtWidgets.QFileDialog.getSaveFileName(self, _("export the settings"),
@@ -2523,10 +2708,10 @@ class Main(QtWidgets.QMainWindow):
         self.apply_style()
         self.refresh_all_lists()
         self.say(_("settings imported"))
-        self.pending_states = states
         fresh = [(url, title) for url, title, _f in missing if not self.store.feed(feed_id(url))]
         if fresh:
-            self.fetch_missing(fresh)
+            # Positions and per-channel settings again once the episodes they name are here.
+            self.bring_in(fresh, lambda: (self.apply_feed_settings(missing), self.apply_states(states)))
 
     def apply_feed_settings(self, rows):
         for url, _title, f in rows:
@@ -2550,38 +2735,6 @@ class Main(QtWidgets.QMainWindow):
             self.store.update_episode(e["id"], positionMs=int(s.get("positionMs", 0)),
                                       state=s.get("state", "NEW"), lastPlayed=int(s.get("lastPlayed", 0)),
                                       starred=bool(s.get("starred")))
-
-    def fetch_missing(self, fresh):
-        """Subscriptions named in an imported file that are not here yet; their positions are
-        applied again once their episodes have arrived."""
-        self.set_busy(_("reading the feed…"))
-
-        def job(_progress):
-            out = []
-            for url, title in fresh:
-                fid = feed_id(url)
-                try:
-                    out.append((fid, url, fetch_feed(url, fid, "RSS")))
-                except Exception:
-                    out.append((fid, url, None))
-            return out
-
-        def done(result, error):
-            self.set_busy("")
-            if not error:
-                for fid, url, parsed in result:
-                    if not parsed:
-                        continue
-                    title, author, episodes = parsed
-                    self.store.add_feed({"id": fid, "url": url, "title": title or url, "author": author,
-                                         "kind": "RSS", "addedAt": int(datetime.now().timestamp() * 1000),
-                                         "lastFetch": int(datetime.now().timestamp() * 1000),
-                                         "autoDownload": False, "keepCount": 50, "lastError": ""})
-                    self.store.merge(fid, episodes)
-                self.apply_states(getattr(self, "pending_states", []))
-            self.refresh_all_lists()
-
-        self.run(job, done)
 
     def write_file(self, path, text, ok_message):
         try:

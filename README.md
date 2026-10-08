@@ -14,6 +14,8 @@ serveur : les abonnements voyagent en OPML, les réglages en JSON.
 - Une adresse YouTube (`@nom`, `/channel/…`, une liste de lecture) s'abonne comme un flux ; l'audio d'une vidéo est cherché par yt-dlp, s'il est installé.
 - Une chaîne YouTube n'annonce que ses quinze dernières vidéos : « charger plus d'épisodes », en bas de sa liste, en lit vingt-cinq de plus à chaque fois (par yt-dlp) ; une vidéo ainsi trouvée reçoit sa date et ses notes quand on l'ouvre. Les chaînes YouTube d'un fichier OPML (celui du téléphone ou d'une autre application) entrent comme des chaînes.
 - « Effacer une fois écouté » est inactif par défaut ; actif, il épargne les favoris, les épisodes mis par écrit sur le téléphone et les vidéos.
+- Les saisons : une chaîne découpée en saisons les montre en titres qu'on ouvre et referme d'un clic. Une série (un flux qui se dit « serial ») se lit de la saison 1 vers la dernière, du premier épisode au dernier, et elle est gardée entière ; une émission qui numérote simplement ses années montre la saison en cours en haut.
+- L'import d'abonnements lit quatre flux à la fois, les ajoute à mesure et dit combien n'ont pas répondu ; un fichier OPML abîmé (caractère interdit, fin de fichier en trop) est lu quand même.
 - Le lien avec le téléphone : `abonnements.opml` et `reglages.json` sont la synchronisation. Les identifiants de flux et d'épisode sont calculés de la même manière des deux côtés, si bien qu'une position prise sur le téléphone retombe sur le bon épisode.
 - Les fichiers vivent dans `~/.local/share/readers-podcasts` (`feeds.json`, `feeds/<id>.json`, `audio/`), les réglages dans `~/.config/readers-podcasts/config.json`.
 - Linux (.deb, PKGBUILD), et tout système où tournent Python 3 et PyQt5.
