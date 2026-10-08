@@ -5,6 +5,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; SRC="$HERE/.."
 VERSION=$(grep -oE '^VERSION = "[^"]+"' "$SRC/readers_podcasts.py" | cut -d'"' -f2)
 ROOT="$HERE/deb-root"; rm -rf "$ROOT"
 install -Dm755 "$SRC/readers_podcasts.py" "$ROOT/usr/lib/readers-podcasts/readers_podcasts.py"
+for f in "$HERE"/fonts/*; do install -Dm644 "$f" "$ROOT/usr/lib/readers-podcasts/fonts/$(basename "$f")"; done
 install -Dm755 /dev/stdin "$ROOT/usr/bin/readers-podcasts" <<'SH'
 #!/bin/sh
 exec python3 /usr/lib/readers-podcasts/readers_podcasts.py "$@"

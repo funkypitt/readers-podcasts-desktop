@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -2770,7 +2770,7 @@ class Main(QtWidgets.QMainWindow):
         rule = "rgba(255,255,255,0.25)" if self.dark else "rgba(0,0,0,0.25)"
         s = self.font_size
         self.colors = {"bg": bg, "fg": fg, "dim": "#8c8c8c" if self.dark else "#737373"}
-        family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), "sans-serif")
+        family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), SANS_FAMILY)
         self.setStyleSheet(f"""
             QMainWindow, QWidget {{ background: {bg}; color: {fg}; font-family: "{family}";
                                     font-size: {s}pt; font-weight: 300; }}
@@ -2833,9 +2833,44 @@ class Main(QtWidgets.QMainWindow):
         super().closeEvent(event)
 
 
+SANS_FAMILY = "sans-serif"   # "Roboto" once the bundled font is loaded (load_bundled_fonts)
+
+
+def bundled_fonts_dir():
+    """Where the fonts shipped with the app lie: next to the script (packaging/fonts in the
+    source tree, fonts/ once installed) or inside a PyInstaller bundle."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    for d in (os.path.join(getattr(sys, "_MEIPASS", ""), "fonts"), os.path.join(here, "fonts"), os.path.join(here, "packaging", "fonts")):
+        if d and os.path.isdir(d):
+            return d
+    return None
+
+
+def load_bundled_fonts():
+    """Roboto Light and Regular travel with the app, so that every computer draws the same
+    text instead of whatever sans-serif the system picks."""
+    global SANS_FAMILY
+    d = bundled_fonts_dir()
+    if not d:
+        return 0
+    n = 0
+    for name in sorted(os.listdir(d)):
+        if name.lower().endswith((".ttf", ".otf")) and QtGui.QFontDatabase.addApplicationFont(os.path.join(d, name)) >= 0:
+            n += 1
+    if n:
+        SANS_FAMILY = "Roboto"
+    return n
+
+
 def main():
+    # Sizes in the layout are pixels and text sizes are points: without this, a scaled screen
+    # (125 %, 150 %, 200 %) grows the text and not the boxes around it.
+    if hasattr(QtCore.Qt, "HighDpiScaleFactorRoundingPolicy"):
+        QtGui.QGuiApplication.setHighDpiScaleFactorRoundingPolicy(QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling, True)
+    QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
     app = QtWidgets.QApplication(sys.argv)
+    load_bundled_fonts()
     app.setApplicationName("Reader's Podcasts")
     window = Main()
     window.show()

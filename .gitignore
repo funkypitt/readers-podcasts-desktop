@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+packaging/deb-root/
+packaging/*.deb
+packaging/pkg/
+packaging/src/
+packaging/*.pkg.tar.*
