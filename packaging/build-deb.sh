@@ -21,7 +21,7 @@ Section: sound
 Priority: optional
 Architecture: all
 Depends: python3 (>= 3.8), python3-pyqt5, python3-pyqt5.qtmultimedia, libqt5multimedia5-plugins, python3-requests, gstreamer1.0-plugins-good
-Recommends: gstreamer1.0-libav, yt-dlp
+Recommends: gstreamer1.0-libav, yt-dlp, ffmpeg
 Maintainer: funkypitt <pierregallaz@gmail.com>
 Homepage: https://github.com/funkypitt/readers-podcasts-desktop
 Description: Black-and-white, text-only podcast player
@@ -31,6 +31,9 @@ Description: Black-and-white, text-only podcast player
  each episode was left, in step with the Reader's Podcasts Android app.
  YouTube channels are followed as feeds; their audio is fetched by yt-dlp
  when it is installed.
+ What is said in an episode can be written down by a Whisper program
+ (faster-whisper, whisper.cpp or whisper) and translated by Ollama, when
+ they are installed; the text is read against the sound.
 CTRL
 fakeroot dpkg-deb --build "$ROOT" "$HERE/readers-podcasts_${VERSION}_all.deb"
 rm -rf "$ROOT"

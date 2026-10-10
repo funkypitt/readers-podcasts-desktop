@@ -16,13 +16,13 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from hashlib import sha1
-from urllib.parse import quote_plus, urljoin, urlparse
+from urllib.parse import quote, quote_plus, urljoin, urlparse
 
 import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -65,6 +65,45 @@ VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES, VIEW_DOWNLOADED)
 
 STRINGS = {
  "fr": {
+  "write down": "mettre par écrit",
+  "text": "texte",
+  "notes": "notes",
+  "translate": "traduire",
+  "original": "original",
+  "stop": "arrêter",
+  "stopped": "arrêté",
+  "writing down %d %%": "mise par écrit %d %%",
+  "translating %d %%": "traduction %d %%",
+  "fetching the model %d %%": "récupération du modèle %d %%",
+  "nothing was heard in this episode": "rien n'a été entendu dans cet épisode",
+  "the library refused the login": "la bibliothèque a refusé l'identification",
+  "writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found": "la mise par écrit demande un programme Whisper (faster-whisper, whisper.cpp ou whisper) : aucun n'a été trouvé",
+  "translating needs Ollama, which is not running or has no model": "la traduction demande Ollama, qui ne tourne pas ou n'a aucun modèle",
+  "the audio is fetched first; it is written down after": "le son est d'abord récupéré ; la mise par écrit suit",
+  "let it work it out": "le laisser trouver",
+  "last time": "la dernière fois",
+  "the language spoken": "la langue parlée",
+  "translate into": "traduire en",
+  "written down": "mis par écrit",
+  "translated": "traduit",
+  "the writing down failed. %s": "la mise par écrit a échoué. %s",
+  "the translation failed. %s": "la traduction a échoué. %s",
+  "the transcripts could not be sent to the library. %s": "les transcriptions n'ont pas pu être envoyées à la bibliothèque. %s",
+  "writing down": "mise par écrit",
+  "ordinary": "ordinaire",
+  "careful": "soignée",
+  "several times slower": "plusieurs fois plus lente",
+  "translation model": "modèle de traduction",
+  "chosen by the app": "choisi par l'application",
+  "With the WebDAV address of the library of Reader's Books, every transcript is sent to a « transcriptions » folder there, a small book per episode, to be read, highlighted and commented.": "Avec l'adresse WebDAV de la bibliothèque de Reader's Books, chaque transcription est envoyée dans un dossier « transcriptions » de cette bibliothèque, un petit livre par épisode, à lire, surligner et commenter.",
+  "address of the library": "adresse de la bibliothèque",
+  "username": "nom d'utilisateur",
+  "password": "mot de passe",
+  "import credentials…": "importer les identifiants…",
+  "Reader's credentials": "Identifiants Reader's",
+  "not a Reader's credentials file": "ce n'est pas un fichier d'identifiants Reader's",
+  "this file names no drive": "ce fichier ne nomme aucun drive",
+  "credentials imported": "identifiants importés",
   "load more episodes": "charger plus d'épisodes",
   "the feed only carries the latest fifteen": "le flux ne porte que les quinze derniers",
   "looking for the older ones…": "recherche des plus anciens…",
@@ -146,6 +185,45 @@ STRINGS = {
   "the import failed. %s": "l'import a échoué. %s", "last refresh failed: %s": "dernière actualisation échouée : %s",
  },
  "de": {
+  "write down": "niederschreiben",
+  "text": "Text",
+  "notes": "Notizen",
+  "translate": "übersetzen",
+  "original": "Original",
+  "stop": "anhalten",
+  "stopped": "angehalten",
+  "writing down %d %%": "Niederschrift %d %%",
+  "translating %d %%": "Übersetzung %d %%",
+  "fetching the model %d %%": "Modell wird geholt %d %%",
+  "nothing was heard in this episode": "in dieser Folge war nichts zu hören",
+  "the library refused the login": "die Bibliothek hat die Anmeldung abgelehnt",
+  "writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found": "das Niederschreiben braucht ein Whisper-Programm (faster-whisper, whisper.cpp oder whisper): keines wurde gefunden",
+  "translating needs Ollama, which is not running or has no model": "das Übersetzen braucht Ollama, das nicht läuft oder kein Modell hat",
+  "the audio is fetched first; it is written down after": "der Ton wird zuerst geholt; danach wird niedergeschrieben",
+  "let it work it out": "selbst herausfinden lassen",
+  "last time": "letztes Mal",
+  "the language spoken": "die gesprochene Sprache",
+  "translate into": "übersetzen in",
+  "written down": "niedergeschrieben",
+  "translated": "übersetzt",
+  "the writing down failed. %s": "das Niederschreiben ist fehlgeschlagen. %s",
+  "the translation failed. %s": "die Übersetzung ist fehlgeschlagen. %s",
+  "the transcripts could not be sent to the library. %s": "die Transkripte konnten nicht an die Bibliothek gesendet werden. %s",
+  "writing down": "Niederschrift",
+  "ordinary": "gewöhnlich",
+  "careful": "sorgfältig",
+  "several times slower": "mehrfach langsamer",
+  "translation model": "Übersetzungsmodell",
+  "chosen by the app": "von der App gewählt",
+  "With the WebDAV address of the library of Reader's Books, every transcript is sent to a « transcriptions » folder there, a small book per episode, to be read, highlighted and commented.": "Mit der WebDAV-Adresse der Bibliothek von Reader's Books wird jedes Transkript dort in einen Ordner « transcriptions » gesendet, ein kleines Buch pro Folge, zum Lesen, Markieren und Kommentieren.",
+  "address of the library": "Adresse der Bibliothek",
+  "username": "Benutzername",
+  "password": "Passwort",
+  "import credentials…": "Zugangsdaten importieren…",
+  "Reader's credentials": "Reader's-Zugangsdaten",
+  "not a Reader's credentials file": "keine Reader's-Zugangsdatendatei",
+  "this file names no drive": "diese Datei nennt kein Drive",
+  "credentials imported": "Zugangsdaten importiert",
   "load more episodes": "mehr Folgen laden",
   "the feed only carries the latest fifteen": "der Feed enthält nur die letzten fünfzehn",
   "looking for the older ones…": "ältere werden gesucht…",
@@ -227,6 +305,45 @@ STRINGS = {
   "the import failed. %s": "der Import ist fehlgeschlagen. %s", "last refresh failed: %s": "letzte Aktualisierung fehlgeschlagen: %s",
  },
  "es": {
+  "write down": "poner por escrito",
+  "text": "texto",
+  "notes": "notas",
+  "translate": "traducir",
+  "original": "original",
+  "stop": "detener",
+  "stopped": "detenido",
+  "writing down %d %%": "transcripción %d %%",
+  "translating %d %%": "traducción %d %%",
+  "fetching the model %d %%": "obteniendo el modelo %d %%",
+  "nothing was heard in this episode": "no se oyó nada en este episodio",
+  "the library refused the login": "la biblioteca rechazó el inicio de sesión",
+  "writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found": "poner por escrito necesita un programa Whisper (faster-whisper, whisper.cpp o whisper): no se encontró ninguno",
+  "translating needs Ollama, which is not running or has no model": "traducir necesita Ollama, que no está en marcha o no tiene ningún modelo",
+  "the audio is fetched first; it is written down after": "primero se obtiene el audio; después se pone por escrito",
+  "let it work it out": "dejar que lo averigüe",
+  "last time": "la última vez",
+  "the language spoken": "el idioma hablado",
+  "translate into": "traducir al",
+  "written down": "puesto por escrito",
+  "translated": "traducido",
+  "the writing down failed. %s": "la transcripción falló. %s",
+  "the translation failed. %s": "la traducción falló. %s",
+  "the transcripts could not be sent to the library. %s": "las transcripciones no se pudieron enviar a la biblioteca. %s",
+  "writing down": "transcripción",
+  "ordinary": "normal",
+  "careful": "cuidada",
+  "several times slower": "varias veces más lenta",
+  "translation model": "modelo de traducción",
+  "chosen by the app": "elegido por la aplicación",
+  "With the WebDAV address of the library of Reader's Books, every transcript is sent to a « transcriptions » folder there, a small book per episode, to be read, highlighted and commented.": "Con la dirección WebDAV de la biblioteca de Reader's Books, cada transcripción se envía a una carpeta « transcriptions » de esa biblioteca, un pequeño libro por episodio, para leer, resaltar y comentar.",
+  "address of the library": "dirección de la biblioteca",
+  "username": "nombre de usuario",
+  "password": "contraseña",
+  "import credentials…": "importar credenciales…",
+  "Reader's credentials": "Credenciales Reader's",
+  "not a Reader's credentials file": "no es un archivo de credenciales Reader's",
+  "this file names no drive": "este archivo no nombra ningún drive",
+  "credentials imported": "credenciales importadas",
   "load more episodes": "cargar más episodios",
   "the feed only carries the latest fifteen": "el canal solo trae los últimos quince",
   "looking for the older ones…": "buscando los más antiguos…",
@@ -308,6 +425,45 @@ STRINGS = {
   "the import failed. %s": "la importación falló. %s", "last refresh failed: %s": "la última actualización falló: %s",
  },
  "pt": {
+  "write down": "passar a escrito",
+  "text": "texto",
+  "notes": "notas",
+  "translate": "traduzir",
+  "original": "original",
+  "stop": "parar",
+  "stopped": "parado",
+  "writing down %d %%": "transcrição %d %%",
+  "translating %d %%": "tradução %d %%",
+  "fetching the model %d %%": "a obter o modelo %d %%",
+  "nothing was heard in this episode": "nada se ouviu neste episódio",
+  "the library refused the login": "a biblioteca recusou o início de sessão",
+  "writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found": "passar a escrito precisa de um programa Whisper (faster-whisper, whisper.cpp ou whisper): nenhum foi encontrado",
+  "translating needs Ollama, which is not running or has no model": "traduzir precisa do Ollama, que não está a correr ou não tem nenhum modelo",
+  "the audio is fetched first; it is written down after": "primeiro obtém-se o áudio; depois passa-se a escrito",
+  "let it work it out": "deixar descobrir",
+  "last time": "da última vez",
+  "the language spoken": "a língua falada",
+  "translate into": "traduzir para",
+  "written down": "passado a escrito",
+  "translated": "traduzido",
+  "the writing down failed. %s": "a transcrição falhou. %s",
+  "the translation failed. %s": "a tradução falhou. %s",
+  "the transcripts could not be sent to the library. %s": "as transcrições não puderam ser enviadas para a biblioteca. %s",
+  "writing down": "transcrição",
+  "ordinary": "normal",
+  "careful": "cuidada",
+  "several times slower": "várias vezes mais lenta",
+  "translation model": "modelo de tradução",
+  "chosen by the app": "escolhido pela aplicação",
+  "With the WebDAV address of the library of Reader's Books, every transcript is sent to a « transcriptions » folder there, a small book per episode, to be read, highlighted and commented.": "Com o endereço WebDAV da biblioteca do Reader's Books, cada transcrição é enviada para uma pasta « transcriptions » dessa biblioteca, um pequeno livro por episódio, para ler, destacar e comentar.",
+  "address of the library": "endereço da biblioteca",
+  "username": "nome de utilizador",
+  "password": "palavra-passe",
+  "import credentials…": "importar credenciais…",
+  "Reader's credentials": "Credenciais Reader's",
+  "not a Reader's credentials file": "não é um ficheiro de credenciais Reader's",
+  "this file names no drive": "este ficheiro não nomeia nenhuma drive",
+  "credentials imported": "credenciais importadas",
   "load more episodes": "carregar mais episódios",
   "the feed only carries the latest fifteen": "o feed só traz os últimos quinze",
   "looking for the older ones…": "à procura dos mais antigos…",
@@ -389,6 +545,45 @@ STRINGS = {
   "the import failed. %s": "a importação falhou. %s", "last refresh failed: %s": "a última atualização falhou: %s",
  },
  "ru": {
+  "write down": "записать текстом",
+  "text": "текст",
+  "notes": "заметки",
+  "translate": "перевести",
+  "original": "оригинал",
+  "stop": "остановить",
+  "stopped": "остановлено",
+  "writing down %d %%": "расшифровка %d %%",
+  "translating %d %%": "перевод %d %%",
+  "fetching the model %d %%": "загрузка модели %d %%",
+  "nothing was heard in this episode": "в этом выпуске ничего не расслышано",
+  "the library refused the login": "библиотека отклонила вход",
+  "writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found": "для расшифровки нужна программа Whisper (faster-whisper, whisper.cpp или whisper): ни одна не найдена",
+  "translating needs Ollama, which is not running or has no model": "для перевода нужен Ollama, а он не запущен или в нём нет модели",
+  "the audio is fetched first; it is written down after": "сначала загружается звук; затем идёт расшифровка",
+  "let it work it out": "пусть определит сам",
+  "last time": "в прошлый раз",
+  "the language spoken": "язык речи",
+  "translate into": "перевести на",
+  "written down": "расшифровано",
+  "translated": "переведено",
+  "the writing down failed. %s": "расшифровка не удалась. %s",
+  "the translation failed. %s": "перевод не удался. %s",
+  "the transcripts could not be sent to the library. %s": "расшифровки не удалось отправить в библиотеку. %s",
+  "writing down": "расшифровка",
+  "ordinary": "обычная",
+  "careful": "тщательная",
+  "several times slower": "в несколько раз медленнее",
+  "translation model": "модель перевода",
+  "chosen by the app": "выбирает приложение",
+  "With the WebDAV address of the library of Reader's Books, every transcript is sent to a « transcriptions » folder there, a small book per episode, to be read, highlighted and commented.": "С адресом WebDAV библиотеки Reader's Books каждая расшифровка отправляется туда в папку « transcriptions », маленькая книга на выпуск: читать, выделять и комментировать.",
+  "address of the library": "адрес библиотеки",
+  "username": "имя пользователя",
+  "password": "пароль",
+  "import credentials…": "импортировать учётные данные…",
+  "Reader's credentials": "Учётные данные Reader's",
+  "not a Reader's credentials file": "это не файл учётных данных Reader's",
+  "this file names no drive": "в этом файле не указан диск",
+  "credentials imported": "учётные данные импортированы",
   "load more episodes": "загрузить ещё выпуски",
   "the feed only carries the latest fifteen": "лента содержит только последние пятнадцать",
   "looking for the older ones…": "ищем более старые…",
@@ -987,6 +1182,7 @@ class Store:
         with self.lock:
             for e in [e for e in self.episodes if e["feedId"] == fid]:
                 self._delete_file(e)
+                transcript_forget(e["id"])
             self.episodes = [e for e in self.episodes if e["feedId"] != fid]
             self.feeds = [f for f in self.feeds if f["id"] != fid]
             path = os.path.join(FEEDS_DIR, fid + ".json")
@@ -1033,16 +1229,17 @@ class Store:
                 old = mine.get(new["id"])
                 if old:
                     new.update({k: old[k] for k in ("localPath", "positionMs", "state", "lastPlayed", "starred")})
+                    new.update({k: old[k] for k in ("transcript", "transcriptLanguage", "translation", "sent") if k in old})
                     if not new["durationMs"]:
                         new["durationMs"] = old["durationMs"]
                 merged.append(new)
             fresh_ids = {e["id"] for e in merged}
             # A feed that lists only its last ten items must not delete what one is listening to.
             orphans = [e for e in mine.values()
-                       if e["id"] not in fresh_ids and (e["localPath"] or e["state"] == "STARTED" or e.get("starred"))]
+                       if e["id"] not in fresh_ids and (e["localPath"] or e["state"] == "STARTED" or e.get("starred") or e.get("transcript"))]
             allofthem = sorted(merged + orphans, key=lambda e: e["published"], reverse=True)
             trimmed = _unique([e for i, e in enumerate(allofthem)
-                               if i < keep or e["localPath"] or e["state"] == "STARTED" or e.get("starred")])
+                               if i < keep or e["localPath"] or e["state"] == "STARTED" or e.get("starred") or e.get("transcript")])
             self.episodes = [e for e in self.episodes if e["feedId"] != fid] + trimmed
             self._save_episodes(fid)
 
@@ -1106,6 +1303,541 @@ class Store:
                           fh, ensure_ascii=False)
         except OSError:
             pass
+
+
+# ------------------------------------------------------------------------------------------
+# What was said, in writing. The phone carries its own Whisper and its own translator; a
+# computer already has better ones, or can be given them. So this app uses what it finds — a
+# Whisper program for the writing down, Ollama for the translation — the way it uses yt-dlp, and
+# says what is missing when nothing is there. The transcripts are kept as on the phone: lines
+# with their times, so that the reading follows the sound.
+# ------------------------------------------------------------------------------------------
+
+TRANSCRIPTS_DIR = os.path.join(DATA_DIR, "transcripts")
+MODELS_DIR = os.path.join(DATA_DIR, "models")
+SPEECH_LANGUAGES = ("fr", "en", "de", "es", "it", "pt", "ru", "nl")
+TRANSLATE_LANGUAGES = ("fr", "en", "de", "es", "pt", "ru")
+LANGUAGE_NAMES = {"fr": "français", "en": "English", "de": "Deutsch", "es": "español", "it": "italiano",
+                  "pt": "português", "ru": "русский", "nl": "Nederlands"}
+# Two qualities, the phone's: quick and decent, or clearly better and several times slower.
+QUALITIES = {"normal": {"faster": "small", "openai": "small", "cpp": "ggml-small-q5_1.bin"},
+             "high": {"faster": "large-v3-turbo", "openai": "turbo", "cpp": "ggml-large-v3-turbo-q5_0.bin"}}
+WHISPER_CPP_MODELS = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
+
+
+def transcript_path(eid, language=None):
+    return os.path.join(TRANSCRIPTS_DIR, eid + (".%s" % language if language else "") + ".json")
+
+
+def transcript_save(eid, language, lines, translation=False):
+    os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+    with open(transcript_path(eid, language if translation else None), "w", encoding="utf-8") as fh:
+        json.dump({"language": language, "lines": [{"a": int(a), "b": int(b), "t": t} for a, b, t in lines]}, fh, ensure_ascii=False)
+
+
+def transcript_load(eid, language=None):
+    """(language, [(start ms, end ms, text)]) or None."""
+    try:
+        with open(transcript_path(eid, language), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data.get("language", ""), [(int(o.get("a", 0)), int(o.get("b", 0)), o.get("t", "")) for o in data.get("lines", [])]
+    except Exception:
+        return None
+
+
+def transcript_forget(eid):
+    if os.path.isdir(TRANSCRIPTS_DIR):
+        for name in os.listdir(TRANSCRIPTS_DIR):
+            if name == eid + ".json" or name.startswith(eid + "."):
+                try:
+                    os.remove(os.path.join(TRANSCRIPTS_DIR, name))
+                except OSError:
+                    pass
+
+
+def transcript_paragraphs(lines):
+    """The lines gathered into paragraphs, a new one on a pause of over a second — the phone's
+    rule. Each paragraph is the list of its lines."""
+    out, last_end = [], -1
+    for a, b, t in lines:
+        if not t.strip():
+            continue
+        if not out or (last_end >= 0 and a - last_end > 1200):
+            out.append([])
+        out[-1].append((a, b, t.strip()))
+        last_end = b
+    return out
+
+
+def transcript_text(lines):
+    """What leaves the app: the paragraphs, a blank line between them."""
+    return "\n\n".join(" ".join(t for _a, _b, t in p) for p in transcript_paragraphs(lines))
+
+
+def _python_with(module):
+    """A Python that has a module: this one, or one of the environments people keep such
+    things in (conda, pipx). Found by looking for the module's folder, not by starting Pythons."""
+    import glob
+    import importlib.util
+    try:
+        if importlib.util.find_spec(module):
+            return sys.executable
+    except Exception:
+        pass
+    home = os.path.expanduser("~")
+    for root in ("miniconda3/envs/*", "anaconda3/envs/*", "miniforge3/envs/*", "mambaforge/envs/*", ".conda/envs/*",
+                 ".local/share/pipx/venvs/*", ".local/pipx/venvs/*", ".virtualenvs/*"):
+        for env in sorted(glob.glob(os.path.join(home, root))):
+            if glob.glob(os.path.join(env, "lib", "python*", "site-packages", module)) or \
+                    os.path.isdir(os.path.join(env, "Lib", "site-packages", module)):
+                for exe in ("bin/python", "bin/python3", "python.exe", "Scripts/python.exe"):
+                    if os.path.exists(os.path.join(env, exe)):
+                        return os.path.join(env, exe)
+    return None
+
+
+def find_whisper(cfg=None):
+    """The program that writes speech down, as {"kind", "command"}: faster-whisper (a Python
+    that has it), else whisper.cpp, else OpenAI's whisper. None when there is none."""
+    import shutil
+    given = (cfg or {}).get("whisper_python", "")
+    if given and os.path.exists(given):
+        return {"kind": "faster", "command": given}
+    python = _python_with("faster_whisper")
+    if python:
+        return {"kind": "faster", "command": python}
+    ffmpeg = shutil.which("ffmpeg")
+    for name in ("whisper-cli", "whisper-cpp", "whisper.cpp"):
+        if shutil.which(name) and ffmpeg:
+            return {"kind": "cpp", "command": shutil.which(name)}
+    if shutil.which("whisper"):
+        return {"kind": "openai", "command": shutil.which("whisper")}
+    return None
+
+
+# Run by the Python that has faster-whisper: one JSON object per line — the length of the
+# sound, each line as it is heard, the language at the end. The graphics card when there is
+# one, the processor otherwise.
+_FASTER_SCRIPT = r"""
+import json, sys
+from faster_whisper import WhisperModel
+audio, name, language = sys.argv[1], sys.argv[2], sys.argv[3] or None
+def run(device, kind):
+    model = WhisperModel(name, device=device, compute_type=kind)
+    segments, info = model.transcribe(audio, language=language, vad_filter=True)
+    print(json.dumps({"d": info.duration}), flush=True)
+    for s in segments:
+        print(json.dumps({"a": s.start, "b": s.end, "t": s.text}), flush=True)
+    print(json.dumps({"lang": info.language}), flush=True)
+try:
+    run("cuda", "float16")
+except Exception as first:
+    print(json.dumps({"again": str(first)[:200]}), flush=True)
+    run("cpu", "int8")
+"""
+
+
+def parse_faster(rows):
+    """What the script above printed, read back: (language, lines). `rows` are its lines; the
+    ones heard before a second start (the card refused) are dropped."""
+    language, lines = "", []
+    for row in rows:
+        try:
+            o = json.loads(row)
+        except ValueError:
+            continue
+        if not isinstance(o, dict):
+            continue
+        if "again" in o:
+            lines = []
+        elif "t" in o and str(o["t"]).strip():
+            lines.append((int(float(o["a"]) * 1000), int(float(o["b"]) * 1000), str(o["t"]).strip()))
+        elif "lang" in o:
+            language = o["lang"] or ""
+    return language, lines
+
+
+def parse_whisper_cpp(data):
+    """whisper.cpp's -oj file: (language, lines)."""
+    lines = []
+    for s in data.get("transcription") or []:
+        text = (s.get("text") or "").strip()
+        if text:
+            lines.append((int(s["offsets"]["from"]), int(s["offsets"]["to"]), text))
+    return (data.get("result") or {}).get("language", ""), lines
+
+
+def parse_openai(data):
+    """OpenAI whisper's --output_format json file: (language, lines)."""
+    lines = [(int(float(s["start"]) * 1000), int(float(s["end"]) * 1000), s["text"].strip())
+             for s in data.get("segments") or [] if (s.get("text") or "").strip()]
+    return data.get("language", ""), lines
+
+
+_STAMP = re.compile(r"\[(?:(\d+):)?(\d+):(\d+)[.,](\d+)\s*-->\s*(?:(\d+):)?(\d+):(\d+)[.,](\d+)\]")
+
+
+def stamp_end_ms(text):
+    """The end of a "[00:01.000 --> 00:05.500]" printed while a program works, for the progress."""
+    m = _STAMP.search(text)
+    if not m:
+        return None
+    h, mi, s, frac = m.group(5), m.group(6), m.group(7), m.group(8)
+    return ((int(h or 0) * 60 + int(mi)) * 60 + int(s)) * 1000 + int(frac[:3].ljust(3, "0"))
+
+
+def _fetch_model(name, on_progress, cancelled):
+    """A whisper.cpp model, fetched once into the app's folder."""
+    path = os.path.join(MODELS_DIR, name)
+    if os.path.exists(path):
+        return path
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    with requests.get(WHISPER_CPP_MODELS + name, stream=True, timeout=(30, 60), headers={"User-Agent": AGENT}) as r:
+        r.raise_for_status()
+        total, got = int(r.headers.get("Content-Length") or 0), 0
+        with open(path + ".part", "wb") as fh:
+            for chunk in r.iter_content(1024 * 1024):
+                if cancelled():
+                    raise Told(_("stopped"))
+                fh.write(chunk)
+                got += len(chunk)
+                if total:
+                    on_progress(-int(got * 100 / total) - 1)        # below zero: the model, not the words
+    os.replace(path + ".part", path)
+    return path
+
+
+def transcribe(engine, audio, quality, language, duration_ms, on_progress, cancelled):
+    """Speech written down by the program found: (language, [(start, end, text)]). `language`
+    is a two-letter code, or "" to let the program work it out. Blocking; `cancelled()` is
+    asked along the way."""
+    import shutil
+    import subprocess
+    import tempfile
+    kind, command = engine["kind"], engine["command"]
+    model = QUALITIES.get(quality, QUALITIES["normal"])[kind]
+    work = tempfile.mkdtemp(prefix="readers-podcasts-")
+    seen = {"length": duration_ms or 0}
+
+    def progress(end_ms):
+        if end_ms and seen["length"] > 0:
+            on_progress(max(0, min(99, int(end_ms * 100 / seen["length"]))))
+
+    def run(args, on_line):
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+        tail = []
+        try:
+            for line in proc.stdout:
+                if cancelled():
+                    proc.terminate()
+                    raise Told(_("stopped"))
+                tail = (tail + [line.rstrip()])[-6:]
+                on_line(line)
+            if proc.wait() != 0:
+                raise RuntimeError(" ".join(t for t in tail if t)[-300:] or "exit %d" % proc.returncode)
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+
+    try:
+        if kind == "faster":
+            rows = []
+
+            def heard(line):
+                rows.append(line)
+                try:
+                    o = json.loads(line)
+                except ValueError:
+                    return
+                if isinstance(o, dict) and "d" in o:
+                    seen["length"] = int(float(o["d"]) * 1000)
+                elif isinstance(o, dict) and "b" in o:
+                    progress(int(float(o["b"]) * 1000))
+
+            run([command, "-c", _FASTER_SCRIPT, audio, model, language or ""], heard)
+            found, lines = parse_faster(rows)
+        elif kind == "cpp":
+            weights = _fetch_model(model, on_progress, cancelled)
+            wav = os.path.join(work, "sound.wav")
+            run([shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1", wav], lambda _l: None)
+            run([command, "-m", weights, "-f", wav, "-l", language or "auto", "-oj", "-of", os.path.join(work, "out")],
+                lambda line: progress(stamp_end_ms(line)))
+            with open(os.path.join(work, "out.json"), encoding="utf-8") as fh:
+                found, lines = parse_whisper_cpp(json.load(fh))
+        else:
+            args = [command, audio, "--model", model, "--output_format", "json", "--output_dir", work, "--verbose", "True"]
+            if language:
+                args += ["--language", language]
+            run(args, lambda line: progress(stamp_end_ms(line)))
+            name = os.path.splitext(os.path.basename(audio))[0] + ".json"
+            with open(os.path.join(work, name), encoding="utf-8") as fh:
+                found, lines = parse_openai(json.load(fh))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    if not lines:
+        raise Told(_("nothing was heard in this episode"))
+    return (language or found or "")[:2], lines
+
+
+# ---- translation: Ollama, in passages that stay tied to the sound ----
+
+OLLAMA = "http://127.0.0.1:11434"
+BLOCK_CHARS = 700
+_PRIMERS = ["TRADUCTION EN FRANÇAIS :", "TRADUCTION EN FRANÇAIS:", "TRANSLATION INTO ENGLISH:", "ÜBERSETZUNG AUF DEUTSCH:", "TRADUCCIÓN AL ESPAÑOL:", "TRADUÇÃO PARA PORTUGUÊS:", "ПЕРЕВОД НА РУССКИЙ:"]
+# The phone's own words (speech/translate/Translator.kt), so that both ask the same thing.
+_ASK = {
+    "en": "Translate the passage below into English. Give the English translation only: no comment, no note, no source text.\n\nPASSAGE:\n%s\n\nTRANSLATION INTO ENGLISH:",
+    "fr": "Traduis en français le passage ci-dessous. Rends uniquement la traduction française : pas de commentaire, pas de note, pas le texte d'origine.\n\nPASSAGE :\n%s\n\nTRADUCTION EN FRANÇAIS :",
+    "de": "Übersetze den folgenden Abschnitt auf Deutsch. Gib nur die deutsche Übersetzung: kein Kommentar, keine Anmerkung, nicht den Ausgangstext.\n\nABSCHNITT:\n%s\n\nÜBERSETZUNG AUF DEUTSCH:",
+    "es": "Traduce al español el pasaje siguiente. Da solo la traducción española: sin comentario, sin nota, sin el texto de origen.\n\nPASAJE:\n%s\n\nTRADUCCIÓN AL ESPAÑOL:",
+    "pt": "Traduz para português o trecho abaixo. Dá apenas a tradução portuguesa: sem comentário, sem nota, sem o texto de origem.\n\nTRECHO:\n%s\n\nTRADUÇÃO PARA PORTUGUÊS:",
+    "ru": "Переведи следующий отрывок на русский язык. Дай только русский перевод: без комментариев, без примечаний, без исходного текста.\n\nОТРЫВОК:\n%s\n\nПЕРЕВОД НА РУССКИЙ:",
+}
+# The second attempt, for a passage the first one fumbled: the same, said harder.
+_STRICT = {
+    "en": "You are translating into English. Write the English of the passage below, sentence for sentence, and nothing else — no preamble, no explanation, not one word of the original.\n\nPASSAGE:\n%s\n\nTRANSLATION INTO ENGLISH:",
+    "fr": "Tu traduis en français. Écris le français du passage ci-dessous, phrase après phrase, et rien d'autre — pas de préambule, pas d'explication, pas un mot de l'original.\n\nPASSAGE :\n%s\n\nTRADUCTION EN FRANÇAIS :",
+    "de": "Du übersetzt auf Deutsch. Schreibe das Deutsche des folgenden Abschnitts, Satz für Satz, und sonst nichts — keine Vorrede, keine Erklärung, kein Wort des Originals.\n\nABSCHNITT:\n%s\n\nÜBERSETZUNG AUF DEUTSCH:",
+    "es": "Estás traduciendo al español. Escribe el español del pasaje siguiente, frase por frase, y nada más: sin preámbulo, sin explicación, ni una palabra del original.\n\nPASAJE:\n%s\n\nTRADUCCIÓN AL ESPAÑOL:",
+    "pt": "Estás a traduzir para português. Escreve o português do trecho abaixo, frase a frase, e nada mais: sem preâmbulo, sem explicação, nem uma palavra do original.\n\nTRECHO:\n%s\n\nTRADUÇÃO PARA PORTUGUÊS:",
+    "ru": "Ты переводишь на русский язык. Напиши русский текст отрывка ниже, предложение за предложением, и больше ничего — без предисловий, без объяснений, ни слова из оригинала.\n\nОТРЫВОК:\n%s\n\nПЕРЕВОД НА РУССКИЙ:",
+}
+
+
+def ollama_models():
+    """The models Ollama has, as [(name, size)] — [] when it is not running or not installed."""
+    try:
+        r = requests.get(OLLAMA + "/api/tags", timeout=2)
+        r.raise_for_status()
+        return [(m["name"], int(m.get("size") or 0)) for m in r.json().get("models") or []
+                if "embed" not in m["name"] and not m["name"].startswith("bge")]
+    except Exception:
+        return []
+
+
+def pick_model(models, wanted=""):
+    """The model that translates: the one chosen if it is still there, else the phone's own
+    family (Gemma 3), else whatever is there."""
+    names = [n for n, _s in models]
+    if wanted in names:
+        return wanted
+    for prefix in ("gemma3:4b", "gemma3", "gemma", "mistral-small", "qwen"):
+        found = [n for n in names if n.startswith(prefix)]
+        if found:
+            return found[0]
+    return names[0] if names else ""
+
+
+def group_blocks(lines):
+    """Consecutive lines gathered into passages of about 700 characters, each keeping the time
+    it begins and ends at: translated line by line a sentence loses its neighbours, and a
+    translation that drifts against the sound is worse than none."""
+    out, start, end, text = [], -1, 0, ""
+    for a, b, t in lines:
+        piece = t.strip()
+        if not piece:
+            continue
+        if start < 0:
+            start = a
+        text = (text + " " + piece) if text else piece
+        end = b
+        if len(text) >= BLOCK_CHARS:
+            out.append((start, end, text))
+            start, text = -1, ""
+    if text:
+        out.append((max(0, start), end, text))
+    return out
+
+
+def clean_answer(answer):
+    """Models like to announce themselves, and some think aloud first."""
+    s = re.sub(r"(?s)<think>.*?</think>", "", answer or "").strip()
+    for p in _PRIMERS:
+        if s.lower().startswith(p.lower()):
+            s = s[len(p):].strip()
+    if len(s) > 1 and s[0] == '"' and s[-1] == '"':
+        s = s[1:-1]
+    return s.strip()
+
+
+def acceptable(source, answer):
+    """A translation, as far as its shape tells: not empty, not the passage handed back, not a
+    length wildly out of proportion."""
+    if not answer or answer.lower() == source.strip().lower():
+        return False
+    return 0.4 <= len(answer) / max(1, len(source)) <= 2.5
+
+
+def translate(lines, target, model, on_progress, cancelled):
+    """The lines translated passage by passage: [(start, end, text)]. A passage the model
+    fumbles twice is kept as it was said. Blocking."""
+    blocks = group_blocks(lines)
+    out = []
+
+    def once(text, table):
+        r = requests.post(OLLAMA + "/api/generate", timeout=(10, 600), json={
+            "model": model, "prompt": table.get(target, table["en"]) % text, "stream": False,
+            "options": {"temperature": 0.2, "num_predict": 1200}})
+        r.raise_for_status()
+        answer = clean_answer(r.json().get("response", ""))
+        return answer if acceptable(text, answer) else None
+
+    try:
+        for i, (a, b, text) in enumerate(blocks):
+            if cancelled():
+                raise Told(_("stopped"))
+            on_progress(int(i * 100 / len(blocks)))
+            out.append((a, b, once(text, _ASK) or once(text, _STRICT) or text))
+    finally:
+        try:        # the model leaves the memory it took: the next writing down may need the card
+            requests.post(OLLAMA + "/api/generate", json={"model": model, "keep_alive": 0}, timeout=10)
+        except Exception:
+            pass
+    return out
+
+
+# ---- the transcripts, sent to the library of Reader's Books (the phone's Shelf.kt) ----
+
+SHELF_FOLDER = "transcriptions"
+
+
+def shelf_account(text):
+    """The library of Reader's Books as a Reader's credentials file names it: (address, username,
+    password). None when the text is not such a file; a blank address when it names no drive."""
+    try:
+        root = json.loads(text)
+    except ValueError:
+        return None
+    if not isinstance(root, dict) or root.get("format") != "readers-credentials":
+        return None
+
+    def word(section, key):
+        return section.get(key) if isinstance(section.get(key), str) else ""
+
+    for name, key in (("readers-books", "url"), ("magazine-reader", "url"), ("readers-scanner", "server"),
+                      ("readers-notes", "server"), ("readers-recorder", "server")):
+        s = root.get(name)
+        if isinstance(s, dict) and word(s, key).strip():
+            return word(s, key).strip(), word(s, "username"), word(s, "password")
+    return "", "", ""
+
+
+def shelf_configured(cfg):
+    return bool(cfg.get("shelf_url", "").strip() and cfg.get("shelf_username", "").strip() and cfg.get("shelf_password"))
+
+
+def shelf_wanted(e):
+    """What of an episode should be on the drive: "" nothing, "t" its transcript, "t+fr" its
+    translation into French as well."""
+    if not e.get("transcript"):
+        return ""
+    return "t+" + e["translation"] if e.get("translation") else "t"
+
+
+def book_file_name(title):
+    """A name the drive, the phone and a desktop all accept (Epub.fileName on the phone)."""
+    base = re.sub(r'[\\/:*?"<>|\x00-\x1f\x7f]', " ", title)
+    base = re.sub(r"\s+", " ", base).strip().rstrip(".")[:120].strip()
+    return base or "untitled"
+
+
+def epub_build(book_id, title, author, language, source, text):
+    """What was said in an episode as a small book, the form Reader's Books reads: one chapter,
+    the episode as title, the channel as author, a first line in small print saying where it
+    comes from. The same book as the phone makes."""
+    import io
+    import zipfile
+
+    def esc(s):
+        s = "".join(c for c in s if c >= " " or c in "\n\t")
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    body = "<h1>%s</h1>\n" % esc(title)
+    if source.strip():
+        body += '<p class="author">%s</p>\n' % esc(source)
+    body += "".join("<p>%s</p>\n" % esc(p).replace("\n", "<br/>") for p in paragraphs)
+    lang = esc(language or "und")
+    page = ('<?xml version="1.0" encoding="utf-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="%s" lang="%s">\n'
+            '<head><meta charset="utf-8"/><title>%s</title></head>\n<body>\n%s</body>\n</html>\n') % (lang, lang, esc(title), body)
+    nav = ('<?xml version="1.0" encoding="utf-8"?>\n<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n'
+           '<head><meta charset="utf-8"/><title>%s</title></head>\n<body><nav epub:type="toc"><ol><li><a href="text.xhtml">%s</a></li></ol></nav></body>\n</html>\n') % (esc(title), esc(title))
+    opf = ('<?xml version="1.0" encoding="utf-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">\n'
+           '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n<dc:identifier id="id">readers-podcasts:%s</dc:identifier>\n'
+           '<dc:title>%s</dc:title>\n<dc:creator>%s</dc:creator>\n<dc:language>%s</dc:language>\n</metadata>\n<manifest>\n'
+           '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n'
+           '<item id="text" href="text.xhtml" media-type="application/xhtml+xml"/>\n</manifest>\n'
+           '<spine><itemref idref="text"/></spine>\n</package>\n') % (esc(book_id), esc(title), esc(author), lang)
+    container = ('<?xml version="1.0"?>\n<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n'
+                 '<rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>\n</container>\n')
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        def put(name, data, method):
+            info = zipfile.ZipInfo(name, (1980, 1, 1, 0, 0, 0))
+            info.compress_type = method
+            z.writestr(info, data)
+        put("mimetype", "application/epub+zip", zipfile.ZIP_STORED)     # first, and stored as it is
+        for name, data in (("META-INF/container.xml", container), ("OEBPS/content.opf", opf),
+                           ("OEBPS/nav.xhtml", nav), ("OEBPS/text.xhtml", page)):
+            put(name, data.encode("utf-8"), zipfile.ZIP_DEFLATED)
+    return out.getvalue()
+
+
+def shelf_send(cfg, episode, channel):
+    """One episode's transcript, then its translation, put in the library — unless a book of
+    that name is there already (the phone's, perhaps): a book once there is never written
+    again, since a highlight made in Reader's Books is a place in that very text. Returns what
+    is there now ("t", "t+fr"). Blocking."""
+    session = requests.Session()
+    session.auth = (cfg["shelf_username"].strip().encode("utf-8"), cfg["shelf_password"].encode("utf-8"))
+    session.headers["User-Agent"] = AGENT
+    channel = channel or "podcasts"
+    base = cfg["shelf_url"].strip().rstrip("/") + "/" + quote(SHELF_FOLDER, safe="") + "/"
+    place = base + quote(book_file_name(channel), safe="") + "/"
+    name = book_file_name(episode["title"])
+    when = QtCore.QLocale().toString(QtCore.QDateTime.fromMSecsSinceEpoch(episode["published"]).date(), "d MMMM yyyy") \
+        if episode.get("published") else ""
+    source = " · ".join(p for p in (channel, when) if p)
+    made = []
+
+    def check(r):
+        if r.status_code in (401, 403):
+            raise Told(_("the library refused the login"))
+        if not 200 <= r.status_code < 300:
+            raise IOError("HTTP %d" % r.status_code)
+
+    def put(file_name, data):
+        target = place + quote(file_name, safe="")
+        there = session.head(target, timeout=(30, 60))
+        if there.status_code == 200:
+            return
+        if there.status_code in (401, 403):
+            check(there)
+        if not made:
+            for folder in (base, place):
+                r = session.request("MKCOL", folder, timeout=(30, 60))
+                if r.status_code not in (201, 405, 301):
+                    check(r)
+            made.append(True)
+        check(session.put(target, data=data, headers={"Content-Type": "application/epub+zip"}, timeout=(30, 120)))
+
+    sent = episode.get("sent", "")
+    if not sent.startswith("t"):
+        found = transcript_load(episode["id"])
+        if not found:
+            return sent
+        put(name + ".epub", epub_build(episode["id"], episode["title"], channel, found[0], source, transcript_text(found[1])))
+        sent = "t"
+    target = episode.get("translation", "")
+    if target and sent != "t+" + target:
+        found = transcript_load(episode["id"], target)
+        if not found:
+            return sent
+        put("%s · %s.epub" % (name, target),
+            epub_build(episode["id"] + "." + target, "%s · %s" % (episode["title"], target), channel, target, source,
+                       transcript_text(found[1])))
+        sent = "t+" + target
+    return sent
 
 
 # ------------------------------------------------------------------------------------------
@@ -1523,10 +2255,14 @@ def load_config():
 
 
 def save_config(cfg):
+    """Readable by this account only where the system knows what that means: it may hold the
+    password of the library."""
     os.makedirs(CONFIG_DIR, exist_ok=True)
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as fh:
+        fd = os.open(CONFIG_FILE + ".tmp", os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(cfg, fh, ensure_ascii=False, indent=2)
+        os.replace(CONFIG_FILE + ".tmp", CONFIG_FILE)
     except OSError:
         pass
 
@@ -1870,6 +2606,38 @@ class SettingsDialog(QtWidgets.QDialog):
         self.delete_played = QtWidgets.QCheckBox()
         self.delete_played.setChecked(bool(cfg.get("delete_when_played", False)))
         form.addRow(_("delete once heard"), self.delete_played)
+        # What was said: how carefully it is written down, and which of Ollama's models translates.
+        self.quality = QtWidgets.QComboBox()
+        self.quality.addItem(_("ordinary"), "normal")
+        self.quality.addItem(_("careful") + " — " + _("several times slower"), "high")
+        self.quality.setCurrentIndex(max(0, self.quality.findData(cfg.get("speech_quality", "normal"))))
+        form.addRow(_("writing down"), self.quality)
+        self.model = QtWidgets.QComboBox()
+        self.model.addItem(_("chosen by the app"), "")
+        for name, _size in ollama_models():
+            self.model.addItem(name, name)
+        self.model.setCurrentIndex(max(0, self.model.findData(cfg.get("translate_model", ""))))
+        form.addRow(_("translation model"), self.model)
+        # The library of Reader's Books, where the transcripts go.
+        hint = QtWidgets.QLabel(_("With the WebDAV address of the library of Reader's Books, every transcript is sent to a « transcriptions » folder there, a small book per episode, to be read, highlighted and commented."))
+        hint.setObjectName("dim")
+        hint.setWordWrap(True)
+        form.addRow(hint)
+        self.shelf_url, self.shelf_user, self.shelf_password = QtWidgets.QLineEdit(), QtWidgets.QLineEdit(), QtWidgets.QLineEdit()
+        self.shelf_url.setText(cfg.get("shelf_url", ""))
+        self.shelf_user.setText(cfg.get("shelf_username", ""))
+        self.shelf_password.setText(cfg.get("shelf_password", ""))
+        self.shelf_password.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.shelf_url.setMinimumWidth(self.shelf_url.fontMetrics().averageCharWidth() * 44)
+        form.addRow(_("address of the library"), self.shelf_url)
+        form.addRow(_("username"), self.shelf_user)
+        form.addRow(_("password"), self.shelf_password)
+        self.said = QtWidgets.QLabel("")
+        self.said.setObjectName("dim")
+        fetch = QtWidgets.QPushButton(_("import credentials…"))
+        fetch.setAutoDefault(False)
+        fetch.clicked.connect(self.import_credentials)
+        form.addRow(fetch, self.said)
         buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         # No Qt translator is loaded: without these the buttons say OK / Cancel in every language.
         buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(_("ok"))
@@ -1877,12 +2645,42 @@ class SettingsDialog(QtWidgets.QDialog):
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
+        # A sentence that wraps asks for its height only once its width is known: without this
+        # the form gives it two lines and cuts the rest.
+        self.adjustSize()
+        margins = form.contentsMargins()
+        hint.setMinimumHeight(hint.heightForWidth(max(200, self.width() - margins.left() - margins.right())))
 
     def values(self):
         return {"dark": self.colours.currentData(), "font": self.font.currentData(),
                 "font_size": self.size.value(), "auto_refresh": self.auto.isChecked(),
                 "delete_when_played": self.delete_played.isChecked(),
-                "default_view": self.opens.currentData()}
+                "default_view": self.opens.currentData(),
+                "speech_quality": self.quality.currentData(), "translate_model": self.model.currentData(),
+                "shelf_url": self.shelf_url.text().strip(), "shelf_username": self.shelf_user.text().strip(),
+                "shelf_password": self.shelf_password.text()}
+
+    def import_credentials(self):
+        """The library's account from a Reader's credentials file: Reader's Books' own section,
+        else the drive and login of an app that keeps its files on the same kind of drive."""
+        path, _sel = QtWidgets.QFileDialog.getOpenFileName(self, _("import credentials…"), os.path.expanduser("~"),
+                                                           "%s (*.json);;* (*)" % _("Reader's credentials"))
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as fh:
+                found = shelf_account(fh.read())
+        except OSError:
+            found = None
+        if found is None:
+            self.said.setText(_("not a Reader's credentials file"))
+        elif not found[0]:
+            self.said.setText(_("this file names no drive"))
+        else:
+            self.shelf_url.setText(found[0])
+            self.shelf_user.setText(found[1])
+            self.shelf_password.setText(found[2])
+            self.said.setText(_("credentials imported"))
 
 
 # ------------------------------------------------------------------------------------------
@@ -1902,6 +2700,14 @@ class Main(QtWidgets.QMainWindow):
         self.threads = []            # kept referenced: a QThread garbage-collected mid-job dies
         self.downloading = None      # id of the episode coming down
         self.download_queue = []
+        self.speech = None           # what is being written down or translated: {"id", "kind", "percent"}
+        self.speech_queue = []       # (episode id, "write" | "translate", language) still to do
+        self.cancel_speech = False
+        self.after_fetch = {}        # episode id -> what to do once its audio is here
+        self.show_text = False       # the pane on the right shows what was said, not the notes
+        self.show_translation = True
+        self.text_line = -1          # the line of the text the sound is at
+        self.shelving = False
         self.download_percent = 0
         self.cancel_download = False
         self.busy = ""               # a line at the top while something is happening
@@ -1915,6 +2721,7 @@ class Main(QtWidgets.QMainWindow):
         self.refresh_all_lists()
         if self.cfg.get("auto_refresh", True) and self.store.feeds:
             QtCore.QTimer.singleShot(200, self.refresh_feeds)
+        QtCore.QTimer.singleShot(1500, self.send_to_library)       # what could not be sent the last time
 
     # ---- building ----
 
@@ -2096,12 +2903,42 @@ class Main(QtWidgets.QMainWindow):
                    ("act:stopdl", _("stop the download")) if busy else
                    ("act:remove", _("remove from this computer")) if here else ("act:download", _("download")),
                    ("act:star", _("remove from favourites") if e.get("starred") else _("keep as a favourite"))]
+        working = bool(self.speech and self.speech["id"] == e["id"])
+        if working:
+            actions.append(("act:stopspeech", self.speech_label() + " · " + _("stop")))
+        elif not e.get("transcript"):
+            actions.append(("act:write", _("write down")))
+        else:
+            actions.append(("act:text", _("notes") if self.show_text else _("text")))
+            if e.get("translation") and self.show_text:
+                actions.append(("act:which", _("original") if self.show_translation else LANGUAGE_NAMES.get(e["translation"], e["translation"])))
+            if not e.get("translation"):
+                actions.append(("act:translate", _("translate")))
         link = 'style="color:%s;"' % fg
         parts = ['<div style="font-size:%dpt; margin-bottom:4px;">%s%s</div>'
                  % (self.font_size + 4, "★ " if e.get("starred") else "", html.escape(e["title"])),
                  '<div style="color:%s; margin-bottom:14px;">%s</div>' % (dim, html.escape(meta)),
                  '<div style="margin-bottom:14px;">%s</div>' % " &nbsp;·&nbsp; ".join(
                      '<a href="%s" %s>%s</a>' % (href, link, html.escape(label)) for href, label in actions)]
+        said = self.said(e) if self.show_text else None
+        if said:
+            # What was said, each line a way to the sound; the line the sound is at stands out.
+            now = self.line_at(e, said)
+            self.text_line = now
+            plain = 'style="color:%s; text-decoration:none;"' % fg
+            here_style = 'style="color:%s; text-decoration:underline; font-weight:600;"' % fg
+            rows, i = [], 0
+            for paragraph in transcript_paragraphs(said):
+                bits = []
+                for a, _b, t in paragraph:
+                    bits.append('<a name="l%d" href="t:%d" %s>%s</a>' % (i, a, here_style if i == now else plain, html.escape(t)))
+                    i += 1
+                rows.append('<p style="line-height:150%%; margin:0 0 12px 0;">%s</p>' % " ".join(bits))
+            at = self.details.verticalScrollBar().value() if getattr(self, "_detail_id", None) == e["id"] + "/text" else 0
+            self._detail_id = e["id"] + "/text"
+            self.details.setHtml("".join(parts + rows))
+            self.details.verticalScrollBar().setValue(at)
+            return
         chapters = parse_chapters(e.get("description", ""), duration)
         if chapters:
             parts.append('<div style="color:%s; margin-bottom:4px;">%s</div>' % (dim, html.escape(_("chapters"))))
@@ -2120,6 +2957,207 @@ class Main(QtWidgets.QMainWindow):
 
     def is_playing(self):
         return bool(self.player) and self.player.state() == QtMultimedia.QMediaPlayer.PlayingState
+
+    # ---- what was said: written down, translated, read against the sound ----
+
+    def said(self, e):
+        """The lines to show for an episode: its translation when there is one and it is asked
+        for, else what was said. None when nothing was written down."""
+        if not e.get("transcript"):
+            return None
+        if e.get("translation") and self.show_translation:
+            found = transcript_load(e["id"], e["translation"])
+            if found:
+                return found[1]
+        found = transcript_load(e["id"])
+        return found[1] if found else None
+
+    def line_at(self, e, lines):
+        """The line the sound is at, counted among the lines that are shown; -1 when this
+        episode is not the one playing."""
+        if not (self.current and self.current["id"] == e["id"] and self.player):
+            return -1
+        position, found, i = self.player.position(), -1, 0
+        for a, _b, t in lines:
+            if not t.strip():
+                continue
+            if a <= position:
+                found = i
+            i += 1
+        return found
+
+    def follow_text(self):
+        """While the text is on the page and its episode plays, the line being said stands out
+        and stays in sight."""
+        e = self.selected_episode()
+        if not (self.show_text and e and self.current and self.current["id"] == e["id"]):
+            return
+        lines = self.said(e)
+        if not lines:
+            return
+        now = self.line_at(e, lines)
+        if now != self.text_line and now >= 0:
+            self.refresh_details()
+            self.details.scrollToAnchor("l%d" % max(0, now - 1))
+
+    def speech_label(self):
+        job = self.speech or {}
+        percent = job.get("percent", 0)
+        if percent < 0:
+            return _("fetching the model %d %%", -percent - 1)
+        return _("translating %d %%", percent) if job.get("kind") == "translate" else _("writing down %d %%", percent)
+
+    def choose_language(self, title, codes, first=None, auto=False):
+        """A short menu under the pointer: the language last used for this channel first, then
+        the others. Returns a code, "" for « let it work it out », None when nothing was chosen."""
+        menu = QtWidgets.QMenu(self)
+        head = menu.addAction(title)
+        head.setEnabled(False)
+        menu.addSeparator()
+        chosen = []
+        if first in codes:
+            menu.addAction("%s  ·  %s" % (LANGUAGE_NAMES.get(first, first), _("last time")), lambda: chosen.append(first))
+        if auto:
+            menu.addAction(_("let it work it out"), lambda: chosen.append(""))
+        for code in codes:
+            if code != first:
+                menu.addAction(LANGUAGE_NAMES.get(code, code), lambda code=code: chosen.append(code))
+        menu.exec_(QtGui.QCursor.pos())
+        return chosen[0] if chosen else None
+
+    def last_language(self, fid):
+        """The language this channel was last written down in: a suggestion, never a choice
+        made on the listener's behalf."""
+        done = [e for e in self.store.episodes_of(fid) if e.get("transcript") and e.get("transcriptLanguage")]
+        return done[0]["transcriptLanguage"] if done else None
+
+    def ask_write(self, e):
+        if not find_whisper(self.cfg):
+            self.say(_("writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found"))
+            return
+        language = self.choose_language(_("the language spoken"), SPEECH_LANGUAGES, self.last_language(e["feedId"]), auto=True)
+        if language is not None:
+            self.queue_speech(e, "write", language)
+
+    def ask_translate(self, e):
+        if not ollama_models():
+            self.say(_("translating needs Ollama, which is not running or has no model"))
+            return
+        source = e.get("transcriptLanguage", "")
+        # The language of this computer first: it is the likeliest wish.
+        codes = sorted((c for c in TRANSLATE_LANGUAGES if c != source), key=lambda c: c != LANG)
+        target = self.choose_language(_("translate into"), codes)
+        if target:
+            self.queue_speech(e, "translate", target)
+
+    def queue_speech(self, e, kind, language):
+        eid = e["id"]
+        if kind == "write" and not (e.get("localPath") and os.path.exists(e["localPath"])):
+            # Nothing can be heard that is not here: the audio is fetched first, the rest follows.
+            self.after_fetch[eid] = lambda: self.queue_speech(self.store.episode(eid), kind, language)
+            self.queue_download(e, quiet=True)
+            self.say(_("the audio is fetched first; it is written down after"))
+            self.refresh_all_lists()
+            return
+        self.speech_queue.append((eid, kind, language))
+        self.next_speech()
+        self.refresh_all_lists()
+
+    def stop_speech(self, e):
+        self.speech_queue = [q for q in self.speech_queue if q[0] != e["id"]]
+        self.after_fetch.pop(e["id"], None)
+        if self.speech and self.speech["id"] == e["id"]:
+            self.cancel_speech = True
+        self.refresh_all_lists()
+
+    def next_speech(self):
+        if self.speech or not self.speech_queue:
+            return
+        eid, kind, language = self.speech_queue.pop(0)
+        e = self.store.episode(eid)
+        if not e:
+            return self.next_speech()
+        self.speech = {"id": eid, "kind": kind, "percent": 0}
+        self.cancel_speech = False
+        cfg = dict(self.cfg)
+
+        def job(progress):
+            if kind == "write":
+                return transcribe(find_whisper(cfg), e["localPath"], cfg.get("speech_quality", "normal"), language,
+                                  e.get("durationMs", 0), progress, lambda: self.cancel_speech)
+            source = transcript_load(eid)
+            model = pick_model(ollama_models(), cfg.get("translate_model", ""))
+            if not source or not model:
+                raise Told(_("translating needs Ollama, which is not running or has no model"))
+            return language, translate(source[1], language, model, progress, lambda: self.cancel_speech)
+
+        def done(result, error):
+            self.speech = None
+            if error:
+                if not self.cancel_speech:
+                    self.say(str(error) if isinstance(error, Told) else
+                             _("the translation failed. %s", str(error)[:160]) if kind == "translate" else
+                             _("the writing down failed. %s", str(error)[:160]))
+                    print("speech failed:", error, file=sys.stderr)
+            else:
+                heard, lines = result
+                if kind == "write":
+                    transcript_save(eid, heard, lines)
+                    self.store.update_episode(eid, transcript=True, transcriptLanguage=heard)
+                    self.say(_("written down"))
+                else:
+                    transcript_save(eid, heard, lines, translation=True)
+                    self.store.update_episode(eid, translation=heard)
+                    self.say(_("translated"))
+                if self.selected_id() == eid:
+                    self.show_text = True
+                self.send_to_library()
+            self.refresh_all_lists()
+            self.next_speech()
+
+        def progress(percent):
+            if self.speech:
+                self.speech["percent"] = percent
+            self.refresh_episodes_list()
+            if self.selected_id() == eid:
+                self.refresh_details()
+
+        self.run(job, done, progress)
+
+    def send_to_library(self):
+        """Every transcript that is not yet in the library of Reader's Books, in the background;
+        what cannot be sent now is sent at the next start or the next transcript."""
+        if self.shelving or not shelf_configured(self.cfg):
+            return
+        waiting = [dict(e) for e in self.store.episodes if e.get("transcript") and e.get("sent", "") != shelf_wanted(e)]
+        if not waiting:
+            return
+        self.shelving = True
+        cfg = dict(self.cfg)
+        channels = {f["id"]: f.get("title", "") for f in self.store.feeds}
+
+        def job(_progress):
+            out, failure = [], ""
+            for e in waiting:
+                try:
+                    out.append((e["id"], shelf_send(cfg, e, channels.get(e["feedId"], ""))))
+                except Told as exc:
+                    failure = str(exc)
+                    break
+                except Exception as exc:
+                    failure = str(exc)[:160]
+            return out, failure
+
+        def done(result, error):
+            self.shelving = False
+            sent, failure = result if result else ([], str(error)[:160] if error else "")
+            for eid, state in sent:
+                if self.store.episode(eid):
+                    self.store.update_episode(eid, sent=state)
+            if failure:
+                self.say(_("the transcripts could not be sent to the library. %s", failure))
+
+        self.run(job, done)
 
     def describe_later(self, e):
         """A video reached by « load more » comes with a title and a length only: its words —
@@ -2162,8 +3200,18 @@ class Main(QtWidgets.QMainWindow):
             self.remove_file(e)
         elif target == "act:star":
             self.star(e, not e.get("starred"))
-        elif target.startswith("chap:"):
-            ms = int(target[5:])
+        elif target == "act:write":
+            self.ask_write(e)
+        elif target == "act:translate":
+            self.ask_translate(e)
+        elif target == "act:stopspeech":
+            self.stop_speech(e)
+        elif target == "act:text":
+            self.show_text = not self.show_text
+        elif target == "act:which":
+            self.show_translation = not self.show_translation
+        elif target.startswith(("chap:", "t:")):
+            ms = int(target.split(":", 1)[1])
             if self.current and self.current["id"] == e["id"] and self.player:
                 self.player.setPosition(ms)
                 if not self.is_playing():
@@ -2319,7 +3367,11 @@ class Main(QtWidgets.QMainWindow):
         duration = e.get("durationMs", 0)
         if playing and self.player and self.player.duration() > 0:
             duration = self.player.duration()
-        if self.downloading == e["id"]:
+        if self.speech and self.speech["id"] == e["id"]:
+            state = self.speech_label()
+        elif any(q[0] == e["id"] for q in self.speech_queue) or e["id"] in self.after_fetch:
+            state = _("waiting")
+        elif self.downloading == e["id"]:
             state = _("downloading %d %%", self.download_percent)
         elif e["id"] in self.download_queue:
             state = _("waiting")
@@ -2570,6 +3622,9 @@ class Main(QtWidgets.QMainWindow):
                 print("download failed:", error, file=sys.stderr)
             elif path:
                 self.store.update_episode(eid, localPath=path, bytes=os.path.getsize(path))
+            then = self.after_fetch.pop(eid, None)
+            if then and path:
+                then()
             self.refresh_all_lists()
             if path and getattr(self, "play_when_fetched", None) == eid:
                 self.play_when_fetched = None
@@ -2822,6 +3877,7 @@ class Main(QtWidgets.QMainWindow):
 
     def on_position(self, _ms):
         self.update_player()
+        self.follow_text()
 
     def on_media_status(self, status):
         if not self.player or status != QtMultimedia.QMediaPlayer.EndOfMedia or not self.current:
@@ -2910,6 +3966,7 @@ class Main(QtWidgets.QMainWindow):
         save_config(self.cfg)
         self.apply_style()
         self.refresh_all_lists()
+        self.send_to_library()
 
     def toggle_theme(self):
         self.dark = not self.dark
@@ -2974,6 +4031,7 @@ class Main(QtWidgets.QMainWindow):
     def closeEvent(self, event):
         self.save_position()
         self.cancel_download = True
+        self.cancel_speech = True
         # A download or a fetch still in flight is given a moment to notice, so the process
         # does not end on Qt's "destroyed while thread is still running".
         deadline = QtCore.QElapsedTimer()
