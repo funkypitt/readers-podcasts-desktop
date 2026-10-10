@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.4.0"
+VERSION = "1.4.1"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -2804,7 +2804,9 @@ class Main(QtWidgets.QMainWindow):
         self.details.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.details.anchorClicked.connect(self.on_detail_link)
         self.details.setMinimumWidth(320)
-        self.episodes_list.currentItemChanged.connect(lambda *_: self.refresh_details())
+        # The selection, not the current item: at a click the current item changes first, and the
+        # pane then described the episode chosen the click before.
+        self.episodes_list.itemSelectionChanged.connect(self.refresh_details)
         split = QtWidgets.QHBoxLayout()
         split.setContentsMargins(0, 0, 0, 0)
         split.setSpacing(0)
@@ -3265,6 +3267,17 @@ class Main(QtWidgets.QMainWindow):
 
     def refresh_episodes_list(self):
         keep = self.selected_id()
+        # Rebuilt in silence: emptied and filled again, the list would announce "nothing chosen"
+        # and then the same episode, and the pane on the right would blink and lose its place.
+        self.episodes_list.blockSignals(True)
+        try:
+            self._fill_episodes_list(keep)
+        finally:
+            self.episodes_list.blockSignals(False)
+        if self.selected_id() != keep:
+            self.refresh_details()
+
+    def _fill_episodes_list(self, keep):
         self.episodes_list.clear()
         feed = self.store.feed(self.view)
         self.head_label.setText(self.busy or (feed.get("title") if feed else
