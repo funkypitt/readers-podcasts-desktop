@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.4.1"
+VERSION = "1.5.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -65,6 +65,8 @@ VIEWS = (VIEW_CHANNELS, VIEW_EPISODES, VIEW_FAVOURITES, VIEW_DOWNLOADED)
 
 STRINGS = {
  "fr": {
+  "telling the voices apart…": "distinction des voix…",
+  "a paragraph at each change of voice": "un paragraphe à chaque changement de voix",
   "write down": "mettre par écrit",
   "text": "texte",
   "notes": "notes",
@@ -185,6 +187,8 @@ STRINGS = {
   "the import failed. %s": "l'import a échoué. %s", "last refresh failed: %s": "dernière actualisation échouée : %s",
  },
  "de": {
+  "telling the voices apart…": "Stimmen werden unterschieden…",
+  "a paragraph at each change of voice": "ein Absatz bei jedem Stimmwechsel",
   "write down": "niederschreiben",
   "text": "Text",
   "notes": "Notizen",
@@ -305,6 +309,8 @@ STRINGS = {
   "the import failed. %s": "der Import ist fehlgeschlagen. %s", "last refresh failed: %s": "letzte Aktualisierung fehlgeschlagen: %s",
  },
  "es": {
+  "telling the voices apart…": "distinguiendo las voces…",
+  "a paragraph at each change of voice": "un párrafo en cada cambio de voz",
   "write down": "poner por escrito",
   "text": "texto",
   "notes": "notas",
@@ -425,6 +431,8 @@ STRINGS = {
   "the import failed. %s": "la importación falló. %s", "last refresh failed: %s": "la última actualización falló: %s",
  },
  "pt": {
+  "telling the voices apart…": "a distinguir as vozes…",
+  "a paragraph at each change of voice": "um parágrafo a cada mudança de voz",
   "write down": "passar a escrito",
   "text": "texto",
   "notes": "notas",
@@ -545,6 +553,8 @@ STRINGS = {
   "the import failed. %s": "a importação falhou. %s", "last refresh failed: %s": "a última atualização falhou: %s",
  },
  "ru": {
+  "telling the voices apart…": "различение голосов…",
+  "a paragraph at each change of voice": "абзац при каждой смене голоса",
   "write down": "записать текстом",
   "text": "текст",
   "notes": "заметки",
@@ -1325,22 +1335,48 @@ QUALITIES = {"normal": {"faster": "small", "openai": "small", "cpp": "ggml-small
 WHISPER_CPP_MODELS = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/"
 
 
+class Lines(list):
+    """What was said: (start ms, end ms, text) triples, in order. `speakers` is one voice per
+    line (a number, or None) when the voices were told apart; `starts` the lines that begin a
+    paragraph when the file itself says so (a translation keeps its source's paragraphs);
+    `words` the words of each line with their times, while a transcript is being made."""
+    speakers = None
+    starts = None
+    words = None
+
+
 def transcript_path(eid, language=None):
     return os.path.join(TRANSCRIPTS_DIR, eid + (".%s" % language if language else "") + ".json")
 
 
 def transcript_save(eid, language, lines, translation=False):
     os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+    speakers, starts = getattr(lines, "speakers", None), getattr(lines, "starts", None)
+    rows = []
+    for i, (a, b, t) in enumerate(lines):
+        row = {"a": int(a), "b": int(b), "t": t}
+        if speakers and speakers[i] is not None:
+            row["s"] = speakers[i]
+        if starts is not None and i in starts:
+            row["p"] = 1
+        rows.append(row)
     with open(transcript_path(eid, language if translation else None), "w", encoding="utf-8") as fh:
-        json.dump({"language": language, "lines": [{"a": int(a), "b": int(b), "t": t} for a, b, t in lines]}, fh, ensure_ascii=False)
+        json.dump({"language": language, "lines": rows}, fh, ensure_ascii=False)
 
 
 def transcript_load(eid, language=None):
-    """(language, [(start ms, end ms, text)]) or None."""
+    """(language, Lines) or None. A file from the phone has neither voices nor paragraphs: the
+    pauses then decide alone."""
     try:
         with open(transcript_path(eid, language), encoding="utf-8") as fh:
             data = json.load(fh)
-        return data.get("language", ""), [(int(o.get("a", 0)), int(o.get("b", 0)), o.get("t", "")) for o in data.get("lines", [])]
+        rows = data.get("lines", [])
+        lines = Lines((int(o.get("a", 0)), int(o.get("b", 0)), o.get("t", "")) for o in rows)
+        if any("s" in o for o in rows):
+            lines.speakers = [o.get("s") for o in rows]
+        if any("p" in o for o in rows):
+            lines.starts = {i for i, o in enumerate(rows) if o.get("p")}
+        return data.get("language", ""), lines
     except Exception:
         return None
 
@@ -1355,17 +1391,47 @@ def transcript_forget(eid):
                     pass
 
 
-def transcript_paragraphs(lines):
-    """The lines gathered into paragraphs, a new one on a pause of over a second — the phone's
-    rule. Each paragraph is the list of its lines."""
-    out, last_end = [], -1
-    for a, b, t in lines:
+_SENTENCE_END = tuple(".?!…»”\"")
+
+
+def paragraph_starts(lines):
+    """The lines that begin a paragraph. Not labels, only where the text breathes: a new
+    paragraph when the voice changes (a question, then its answer), after a long pause, after a
+    shorter one that follows the end of a sentence, and — one voice going on and on — at the end
+    of a sentence once the paragraph has grown long. A file that says where its paragraphs begin
+    is believed."""
+    given = getattr(lines, "starts", None)
+    if given is not None:
+        return set(given) | {next((i for i, (_a, _b, t) in enumerate(lines) if t.strip()), 0)}
+    speakers = getattr(lines, "speakers", None)
+    starts, length, prev = set(), 0, None
+    for i, (a, _b, t) in enumerate(lines):
         if not t.strip():
             continue
-        if not out or (last_end >= 0 and a - last_end > 1200):
+        if prev is None:
+            starts.add(i)
+        else:
+            _pa, pb, pt = lines[prev]
+            pause, ended = a - pb, pt.rstrip().endswith(_SENTENCE_END)
+            other = bool(speakers) and speakers[i] is not None and speakers[prev] is not None and speakers[i] != speakers[prev]
+            if other or pause >= 2000 or (pause >= 900 and ended) or (length >= 900 and ended and pause >= 250):
+                starts.add(i)
+                length = 0
+        length += len(t)
+        prev = i
+    return starts
+
+
+def transcript_paragraphs(lines):
+    """The lines gathered into paragraphs (see paragraph_starts). Each paragraph is the list
+    of its lines; blank lines are left out."""
+    starts, out = paragraph_starts(lines), []
+    for i, (a, b, t) in enumerate(lines):
+        if not t.strip():
+            continue
+        if i in starts or not out:
             out.append([])
         out[-1].append((a, b, t.strip()))
-        last_end = b
     return out
 
 
@@ -1424,10 +1490,11 @@ from faster_whisper import WhisperModel
 audio, name, language = sys.argv[1], sys.argv[2], sys.argv[3] or None
 def run(device, kind):
     model = WhisperModel(name, device=device, compute_type=kind)
-    segments, info = model.transcribe(audio, language=language, vad_filter=True)
+    segments, info = model.transcribe(audio, language=language, vad_filter=True, word_timestamps=True)
     print(json.dumps({"d": info.duration}), flush=True)
     for s in segments:
-        print(json.dumps({"a": s.start, "b": s.end, "t": s.text}), flush=True)
+        words = [[w.start, w.end, w.word] for w in (s.words or [])]
+        print(json.dumps({"a": s.start, "b": s.end, "t": s.text, "w": words}), flush=True)
     print(json.dumps({"lang": info.language}), flush=True)
 try:
     run("cuda", "float16")
@@ -1438,9 +1505,9 @@ except Exception as first:
 
 
 def parse_faster(rows):
-    """What the script above printed, read back: (language, lines). `rows` are its lines; the
-    ones heard before a second start (the card refused) are dropped."""
-    language, lines = "", []
+    """What the script above printed, read back: (language, Lines with their words). `rows`
+    are its lines; the ones heard before a second start (the card refused) are dropped."""
+    language, lines, words = "", Lines(), []
     for row in rows:
         try:
             o = json.loads(row)
@@ -1449,11 +1516,13 @@ def parse_faster(rows):
         if not isinstance(o, dict):
             continue
         if "again" in o:
-            lines = []
+            lines, words = Lines(), []
         elif "t" in o and str(o["t"]).strip():
             lines.append((int(float(o["a"]) * 1000), int(float(o["b"]) * 1000), str(o["t"]).strip()))
+            words.append([(int(float(a) * 1000), int(float(b) * 1000), str(w)) for a, b, w in o.get("w") or []])
         elif "lang" in o:
             language = o["lang"] or ""
+    lines.words = words
     return language, lines
 
 
@@ -1464,14 +1533,14 @@ def parse_whisper_cpp(data):
         text = (s.get("text") or "").strip()
         if text:
             lines.append((int(s["offsets"]["from"]), int(s["offsets"]["to"]), text))
-    return (data.get("result") or {}).get("language", ""), lines
+    return (data.get("result") or {}).get("language", ""), Lines(lines)
 
 
 def parse_openai(data):
     """OpenAI whisper's --output_format json file: (language, lines)."""
     lines = [(int(float(s["start"]) * 1000), int(float(s["end"]) * 1000), s["text"].strip())
              for s in data.get("segments") or [] if (s.get("text") or "").strip()]
-    return data.get("language", ""), lines
+    return data.get("language", ""), Lines(lines)
 
 
 _STAMP = re.compile(r"\[(?:(\d+):)?(\d+):(\d+)[.,](\d+)\s*-->\s*(?:(\d+):)?(\d+):(\d+)[.,](\d+)\]")
@@ -1579,6 +1648,153 @@ def transcribe(engine, audio, quality, language, duration_ms, on_progress, cance
     return (language or found or "")[:2], lines
 
 
+# ---- the voices: who speaks when, so that a paragraph ends where a voice does ----
+
+def find_voices(cfg=None):
+    """A Python that has pyannote (the one that has faster-whisper first: they usually live
+    together), and ffmpeg to hand it the sound. None when the voices cannot be told apart."""
+    import glob
+    import shutil
+    if not shutil.which("ffmpeg"):
+        return None
+    whisper = find_whisper(cfg)
+    if whisper and whisper["kind"] == "faster":
+        env = os.path.dirname(os.path.dirname(whisper["command"]))
+        if glob.glob(os.path.join(env, "lib", "python*", "site-packages", "pyannote", "audio")) or \
+                os.path.isdir(os.path.join(env, "Lib", "site-packages", "pyannote", "audio")):
+            return {"command": whisper["command"]}
+    python = _python_with(os.path.join("pyannote", "audio"))
+    return {"command": python} if python else None
+
+
+# Run by the Python that has pyannote: one JSON object per turn of speech. The sound is handed
+# over in memory (16 kHz mono, made by ffmpeg), whatever decoder pyannote has or lacks; the
+# model is the one already on the computer, or fetched with the Hugging Face token if one is set.
+_VOICES_SCRIPT = r"""
+import array, json, os, sys, wave
+import torch
+from pyannote.audio import Pipeline
+token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN") or None
+pipe, why = None, ""
+for name in ("pyannote/speaker-diarization-community-1", "pyannote/speaker-diarization-3.1"):
+    for kw in ({"token": token}, {"use_auth_token": token}, {}):
+        try:
+            pipe = Pipeline.from_pretrained(name, **kw)
+        except Exception as e:
+            why = str(e)[:200]
+        if pipe is not None:
+            break
+    if pipe is not None:
+        break
+if pipe is None:
+    sys.exit("no pipeline: " + why)
+pipe.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+with wave.open(sys.argv[1], "rb") as w:
+    rate, frames = w.getframerate(), w.readframes(w.getnframes())
+samples = torch.tensor(array.array("h", frames), dtype=torch.float32).unsqueeze(0) / 32768.0
+out = pipe({"waveform": samples, "sample_rate": rate})
+ann = getattr(out, "exclusive_speaker_diarization", None) or getattr(out, "speaker_diarization", None) or out
+for turn, _t, speaker in ann.itertracks(yield_label=True):
+    print(json.dumps({"a": turn.start, "b": turn.end, "s": str(speaker)}), flush=True)
+"""
+
+
+def parse_voices(rows):
+    """What the script above printed: [(start ms, end ms, voice)]."""
+    turns = []
+    for row in rows:
+        try:
+            o = json.loads(row)
+        except ValueError:
+            continue
+        if isinstance(o, dict) and "s" in o and "a" in o:
+            turns.append((int(float(o["a"]) * 1000), int(float(o["b"]) * 1000), o["s"]))
+    return sorted(turns)
+
+
+def tell_voices(engine, audio, cancelled):
+    """Who speaks when in a recording: [(start, end, voice)]. Blocking."""
+    import shutil
+    import subprocess
+    import tempfile
+    work = tempfile.mkdtemp(prefix="readers-podcasts-")
+    try:
+        wav = os.path.join(work, "sound.wav")
+        subprocess.run([shutil.which("ffmpeg"), "-y", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1",
+                        "-c:a", "pcm_s16le", wav], check=True, capture_output=True)
+        proc = subprocess.Popen([engine["command"], "-c", _VOICES_SCRIPT, wav], stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, text=True, errors="replace")
+        rows = []
+        try:
+            for line in proc.stdout:
+                if cancelled():
+                    proc.terminate()
+                    raise Told(_("stopped"))
+                rows.append(line)
+            if proc.wait() != 0:
+                raise RuntimeError((proc.stderr.read() or "")[-300:])
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+        return parse_voices(rows)
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def _voice_over(turns, a, b):
+    """The voice that speaks most between two times; None when nobody is heard there."""
+    share = {}
+    for ta, tb, voice in turns:
+        if tb <= a:
+            continue
+        if ta >= b:
+            break
+        share[voice] = share.get(voice, 0) + min(b, tb) - max(a, ta)
+    return max(share, key=share.get) if share else None
+
+
+def with_voices(lines, turns):
+    """The lines, each with the voice that says it — and cut in two where the voice changes in
+    the middle of one, which is what happens when an answer follows its question without a
+    breath. Needs the words' times for the cut (faster-whisper gives them); without them a line
+    goes whole to the voice that holds most of it."""
+    out, voices = Lines(), []
+    words = getattr(lines, "words", None)
+    for i, (a, b, t) in enumerate(lines):
+        ws = words[i] if words and i < len(words) else None
+        if not ws or len(ws) < 4:
+            out.append((a, b, t))
+            voices.append(_voice_over(turns, a, b))
+            continue
+        said = [_voice_over(turns, wa, max(wb, wa + 1)) for wa, wb, _w in ws]
+        for k in range(len(said)):              # a word between two turns goes with its neighbour
+            if said[k] is None:
+                said[k] = next((v for v in said[k + 1:] if v is not None), None) if k == 0 or said[k - 1] is None else said[k - 1]
+        runs = []
+        for k, v in enumerate(said):
+            if runs and runs[-1][0] == v:
+                runs[-1][1].append(k)
+            else:
+                runs.append([v, [k]])
+        merged = []                              # two words in another voice are a slip of the ear, not a turn
+        for v, ks in runs:
+            if merged and (len(ks) < 3 or merged[-1][0] == v):
+                merged[-1][1].extend(ks)
+            else:
+                merged.append([v, list(ks)])
+        if len(merged) > 1 and len(merged[0][1]) < 3:
+            merged[1][1] = merged[0][1] + merged[1][1]
+            merged.pop(0)
+        for v, ks in merged:
+            text = "".join(ws[k][2] for k in ks).strip()
+            if text:
+                out.append((ws[ks[0]][0], ws[ks[-1]][1], text))
+                voices.append(v)
+    numbers = {}
+    out.speakers = [None if v is None else numbers.setdefault(v, len(numbers)) for v in voices]
+    return out
+
+
 # ---- translation: Ollama, in passages that stay tied to the sound ----
 
 OLLAMA = "http://127.0.0.1:11434"
@@ -1631,21 +1847,35 @@ def pick_model(models, wanted=""):
 def group_blocks(lines):
     """Consecutive lines gathered into passages of about 700 characters, each keeping the time
     it begins and ends at: translated line by line a sentence loses its neighbours, and a
-    translation that drifts against the sound is worse than none."""
-    out, start, end, text = [], -1, 0, ""
-    for a, b, t in lines:
+    translation that drifts against the sound is worse than none. A passage never runs from one
+    paragraph into the next, so the translation has the paragraphs of what was said."""
+    breaks = paragraph_starts(lines)
+    out, begins = Lines(), set()
+    start, end, text, opens = -1, 0, "", True
+
+    def flush():
+        nonlocal start, text, opens
+        if text:
+            if opens:
+                begins.add(len(out))
+            out.append((max(0, start), end, text))
+        start, text, opens = -1, "", False
+
+    for i, (a, b, t) in enumerate(lines):
         piece = t.strip()
         if not piece:
             continue
+        if i in breaks:
+            flush()
+            opens = True
         if start < 0:
             start = a
         text = (text + " " + piece) if text else piece
         end = b
         if len(text) >= BLOCK_CHARS:
-            out.append((start, end, text))
-            start, text = -1, ""
-    if text:
-        out.append((max(0, start), end, text))
+            flush()
+    flush()
+    out.starts = begins
     return out
 
 
@@ -1672,7 +1902,8 @@ def translate(lines, target, model, on_progress, cancelled):
     """The lines translated passage by passage: [(start, end, text)]. A passage the model
     fumbles twice is kept as it was said. Blocking."""
     blocks = group_blocks(lines)
-    out = []
+    out = Lines()
+    out.starts = blocks.starts
 
     def once(text, table):
         r = requests.post(OLLAMA + "/api/generate", timeout=(10, 600), json={
@@ -2612,6 +2843,9 @@ class SettingsDialog(QtWidgets.QDialog):
         self.quality.addItem(_("careful") + " — " + _("several times slower"), "high")
         self.quality.setCurrentIndex(max(0, self.quality.findData(cfg.get("speech_quality", "normal"))))
         form.addRow(_("writing down"), self.quality)
+        self.voices = QtWidgets.QCheckBox()
+        self.voices.setChecked(bool(cfg.get("speech_voices", True)))
+        form.addRow(_("a paragraph at each change of voice"), self.voices)
         self.model = QtWidgets.QComboBox()
         self.model.addItem(_("chosen by the app"), "")
         for name, _size in ollama_models():
@@ -2656,7 +2890,8 @@ class SettingsDialog(QtWidgets.QDialog):
                 "font_size": self.size.value(), "auto_refresh": self.auto.isChecked(),
                 "delete_when_played": self.delete_played.isChecked(),
                 "default_view": self.opens.currentData(),
-                "speech_quality": self.quality.currentData(), "translate_model": self.model.currentData(),
+                "speech_quality": self.quality.currentData(), "speech_voices": self.voices.isChecked(),
+                "translate_model": self.model.currentData(),
                 "shelf_url": self.shelf_url.text().strip(), "shelf_username": self.shelf_user.text().strip(),
                 "shelf_password": self.shelf_password.text()}
 
@@ -3007,6 +3242,8 @@ class Main(QtWidgets.QMainWindow):
         percent = job.get("percent", 0)
         if percent < 0:
             return _("fetching the model %d %%", -percent - 1)
+        if job.get("kind") == "voices":
+            return _("telling the voices apart…")
         return _("translating %d %%", percent) if job.get("kind") == "translate" else _("writing down %d %%", percent)
 
     def choose_language(self, title, codes, first=None, auto=False):
@@ -3085,8 +3322,21 @@ class Main(QtWidgets.QMainWindow):
 
         def job(progress):
             if kind == "write":
-                return transcribe(find_whisper(cfg), e["localPath"], cfg.get("speech_quality", "normal"), language,
-                                  e.get("durationMs", 0), progress, lambda: self.cancel_speech)
+                heard, lines = transcribe(find_whisper(cfg), e["localPath"], cfg.get("speech_quality", "normal"), language,
+                                          e.get("durationMs", 0), progress, lambda: self.cancel_speech)
+                voices = find_voices(cfg) if cfg.get("speech_voices", True) else None
+                if voices:
+                    # Who speaks when, so that a paragraph ends where a voice does. If it cannot
+                    # be told, the pauses decide alone: the transcript is not held back for it.
+                    self.speech["kind"] = "voices"
+                    progress(0)
+                    try:
+                        lines = with_voices(lines, tell_voices(voices, e["localPath"], lambda: self.cancel_speech))
+                    except Told:
+                        raise
+                    except Exception as exc:
+                        print("voices not told apart:", str(exc)[-300:], file=sys.stderr)
+                return heard, lines
             source = transcript_load(eid)
             model = pick_model(ollama_models(), cfg.get("translate_model", ""))
             if not source or not model:
