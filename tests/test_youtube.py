@@ -31,7 +31,7 @@ class YouTube(unittest.TestCase):
 
     def test_what_an_address_stands_for(self):
         self.assertEqual(rp.resolve_address("https://example.org/feed.xml"), ("https://example.org/feed.xml", "RSS"))
-        # The phone writes a channel's Atom feed in abonnements.opml: it stays itself.
+        # The phone writes a channel's Atom feed in its OPML export: it stays itself.
         self.assertEqual(rp.resolve_address(FEED), (FEED, "YOUTUBE"))
         # A channel page is turned into that same feed, without touching the network.
         self.assertEqual(rp.resolve_address("https://www.youtube.com/channel/UCabcdefghijklmnopqrstuv"), (FEED, "YOUTUBE"))

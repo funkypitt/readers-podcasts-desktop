@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Reader's Podcasts — black-and-white podcasts for the desktop, in step with the Android app.
-Subscriptions travel as OPML, settings and listening positions as reglages.json: there is no
+Subscriptions travel as OPML, settings and listening positions as a settings JSON: there is no
 server, those two files are the synchronisation. One file, PyQt5 + requests. MIT licence."""
 
 import html
@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -703,7 +703,7 @@ def _(key, *args):
 
 # ------------------------------------------------------------------------------------------
 # The model, with the phone's ids: the same episode gets the same id on both sides, which is
-# what lets reglages.json carry a listening position across without either knowing the other.
+# what lets the settings file carry a listening position across without either knowing the other.
 # ------------------------------------------------------------------------------------------
 
 def _sha1(text):
@@ -3922,7 +3922,7 @@ class Main(QtWidgets.QMainWindow):
 
     def export_opml(self):
         path, _sel = QtWidgets.QFileDialog.getSaveFileName(self, _("export the subscriptions"),
-                                                           os.path.expanduser("~/abonnements.opml"))
+                                                           os.path.expanduser("~/readers-podcasts-subscriptions.opml"))
         if path:
             self.write_file(path, opml_export(self.store.feeds), _("subscriptions exported"))
 
@@ -4000,7 +4000,7 @@ class Main(QtWidgets.QMainWindow):
 
     def export_settings(self):
         path, _sel = QtWidgets.QFileDialog.getSaveFileName(self, _("export the settings"),
-                                                           os.path.expanduser("~/reglages.json"))
+                                                           os.path.expanduser("~/readers-podcasts-settings.json"))
         if path:
             text = backup_export(settings_for_backup(self.cfg), self.store.feeds, self.store.episodes)
             self.write_file(path, text, _("settings exported"))
