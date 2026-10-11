@@ -22,7 +22,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.5.1"
+VERSION = "1.6.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -175,7 +175,7 @@ STRINGS = {
   "%d unheard": "%d à écouter",
   "settings": "réglages", "colours": "couleurs", "white on black": "blanc sur noir",
   "black on white": "noir sur blanc", "text size": "taille du texte", "font": "police",
-  "refresh on opening": "actualiser à l'ouverture", "delete once heard": "effacer une fois écouté",
+  "refresh on opening": "actualiser à l'ouverture", "delete once heard": "effacer une fois écouté", "hide episodes under 10 minutes": "masquer les épisodes de moins de 10 minutes", "trailers and snippets; favourites and downloads stay": "bandes-annonces et extraits ; les favoris et les téléchargements restent",
   "on": "actif", "off": "inactif", "today": "aujourd'hui", "yesterday": "hier",
   "speed": "vitesse", "play": "lire", "pause": "pause",
   "audio is missing: install python3-pyqt5.qtmultimedia": "audio manquant : installez python3-pyqt5.qtmultimedia",
@@ -297,7 +297,7 @@ STRINGS = {
   "%d unheard": "%d ungehört",
   "settings": "Einstellungen", "colours": "Farben", "white on black": "weiss auf schwarz",
   "black on white": "schwarz auf weiss", "text size": "Textgrösse", "font": "Schrift",
-  "refresh on opening": "beim Öffnen aktualisieren", "delete once heard": "nach dem Hören löschen",
+  "refresh on opening": "beim Öffnen aktualisieren", "delete once heard": "nach dem Hören löschen", "hide episodes under 10 minutes": "Episoden unter 10 Minuten ausblenden", "trailers and snippets; favourites and downloads stay": "Trailer und Ausschnitte; Favoriten und Downloads bleiben",
   "on": "an", "off": "aus", "today": "heute", "yesterday": "gestern",
   "speed": "Tempo", "play": "abspielen", "pause": "Pause",
   "audio is missing: install python3-pyqt5.qtmultimedia": "Audio fehlt: python3-pyqt5.qtmultimedia installieren",
@@ -419,7 +419,7 @@ STRINGS = {
   "%d unheard": "%d sin escuchar",
   "settings": "ajustes", "colours": "colores", "white on black": "blanco sobre negro",
   "black on white": "negro sobre blanco", "text size": "tamaño del texto", "font": "tipografía",
-  "refresh on opening": "actualizar al abrir", "delete once heard": "borrar una vez escuchado",
+  "refresh on opening": "actualizar al abrir", "delete once heard": "borrar una vez escuchado", "hide episodes under 10 minutes": "ocultar los episodios de menos de 10 minutos", "trailers and snippets; favourites and downloads stay": "avances y fragmentos; los favoritos y las descargas se quedan",
   "on": "activo", "off": "inactivo", "today": "hoy", "yesterday": "ayer",
   "speed": "velocidad", "play": "reproducir", "pause": "pausa",
   "audio is missing: install python3-pyqt5.qtmultimedia": "falta el audio: instale python3-pyqt5.qtmultimedia",
@@ -541,7 +541,7 @@ STRINGS = {
   "%d unheard": "%d por ouvir",
   "settings": "definições", "colours": "cores", "white on black": "branco sobre preto",
   "black on white": "preto sobre branco", "text size": "tamanho do texto", "font": "tipo de letra",
-  "refresh on opening": "atualizar ao abrir", "delete once heard": "apagar depois de ouvido",
+  "refresh on opening": "atualizar ao abrir", "delete once heard": "apagar depois de ouvido", "hide episodes under 10 minutes": "ocultar os episódios com menos de 10 minutos", "trailers and snippets; favourites and downloads stay": "trailers e excertos; os favoritos e as transferências ficam",
   "on": "ativa", "off": "inativa", "today": "hoje", "yesterday": "ontem",
   "speed": "velocidade", "play": "reproduzir", "pause": "pausa",
   "audio is missing: install python3-pyqt5.qtmultimedia": "falta o áudio: instale python3-pyqt5.qtmultimedia",
@@ -663,7 +663,7 @@ STRINGS = {
   "%d unheard": "не прослушано: %d",
   "settings": "настройки", "colours": "цвета", "white on black": "белое на чёрном",
   "black on white": "чёрное на белом", "text size": "размер текста", "font": "шрифт",
-  "refresh on opening": "обновлять при открытии", "delete once heard": "удалять после прослушивания",
+  "refresh on opening": "обновлять при открытии", "delete once heard": "удалять после прослушивания", "hide episodes under 10 minutes": "скрывать выпуски короче 10 минут", "trailers and snippets; favourites and downloads stay": "трейлеры и отрывки; избранное и загруженное остаются",
   "on": "вкл", "off": "выкл", "today": "сегодня", "yesterday": "вчера",
   "speed": "скорость", "play": "воспроизвести", "pause": "пауза",
   "audio is missing: install python3-pyqt5.qtmultimedia": "нет аудио: установите python3-pyqt5.qtmultimedia",
@@ -1120,6 +1120,14 @@ def backup_export(settings, feeds, episodes):
 # ------------------------------------------------------------------------------------------
 # The store: feeds.json and one feeds/<id>.json per subscription, as on the phone
 # ------------------------------------------------------------------------------------------
+
+SHORT_SECONDS = 10 * 60
+
+
+def without_short(episodes):
+    """Without the episodes under ten minutes; one whose length is not known stays."""
+    return [e for e in episodes if not (0 < (e.get("duration") or 0) < SHORT_SECONDS)]
+
 
 class Store:
     def __init__(self):
@@ -2837,6 +2845,10 @@ class SettingsDialog(QtWidgets.QDialog):
         self.delete_played = QtWidgets.QCheckBox()
         self.delete_played.setChecked(bool(cfg.get("delete_when_played", False)))
         form.addRow(_("delete once heard"), self.delete_played)
+        self.hide_short = QtWidgets.QCheckBox()
+        self.hide_short.setChecked(bool(cfg.get("hide_short", False)))
+        self.hide_short.setToolTip(_("trailers and snippets; favourites and downloads stay"))
+        form.addRow(_("hide episodes under 10 minutes"), self.hide_short)
         # What was said: how carefully it is written down, and which of Ollama's models translates.
         self.quality = QtWidgets.QComboBox()
         self.quality.addItem(_("ordinary"), "normal")
@@ -2889,6 +2901,7 @@ class SettingsDialog(QtWidgets.QDialog):
         return {"dark": self.colours.currentData(), "font": self.font.currentData(),
                 "font_size": self.size.value(), "auto_refresh": self.auto.isChecked(),
                 "delete_when_played": self.delete_played.isChecked(),
+                "hide_short": self.hide_short.isChecked(),
                 "default_view": self.opens.currentData(),
                 "speech_quality": self.quality.currentData(), "speech_voices": self.voices.isChecked(),
                 "translate_model": self.model.currentData(),
@@ -3510,6 +3523,10 @@ class Main(QtWidgets.QMainWindow):
             episodes = self.store.downloaded()
         else:
             episodes = self.store.recent()
+        # the short ones — trailers, snippets — left out of a channel and of « episodes » when asked;
+        # favourites and downloads are the person's own picks and stay
+        if self.cfg.get("hide_short") and self.view not in (VIEW_FAVOURITES, VIEW_DOWNLOADED):
+            episodes = without_short(episodes)
         needle = self.filter_text.strip().lower()
         if needle:
             episodes = [e for e in episodes if needle in e["title"].lower()]
