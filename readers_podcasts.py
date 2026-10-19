@@ -10,6 +10,7 @@ import os
 import re
 import sys
 import threading
+import time
 import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
@@ -22,7 +23,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -804,6 +805,12 @@ def linkify(text, duration_ms=0, times=False):
         last = m.start() + len(url)
     out.append(plain(text[last:]))
     return "".join(out).replace("\n", "<br>")
+
+
+def waiting_label(t):
+    """The play button while the sound is on its way — a stream filling up, a video being fetched
+    first. The glyph stays and dots come and go after it: the press was taken, the sound follows."""
+    return ("▶ " + "· " * (int(t * 2.5) % 3 + 1)).strip()
 
 
 def clock(ms):
@@ -3118,12 +3125,17 @@ class Main(QtWidgets.QMainWindow):
             self.player.durationChanged.connect(lambda _d: self.update_player())
             self.player.stateChanged.connect(lambda _s: self.update_player())
             self.player.mediaStatusChanged.connect(self.on_media_status)
+            self.player.mediaStatusChanged.connect(lambda _s: self.update_player())
         else:
             self.now_label.setText(_("audio is missing: install python3-pyqt5.qtmultimedia"))
         self.saver = QtCore.QTimer(self)
         self.saver.setInterval(5000)
         self.saver.timeout.connect(self.save_position)
         self.saver.start()
+        # While the sound is on its way the button's dots move: this is what moves them.
+        self.waiter = QtCore.QTimer(self)
+        self.waiter.setInterval(400)
+        self.waiter.timeout.connect(self.update_player)
         self.update_player()
 
     # ---- the two lists ----
@@ -4194,7 +4206,8 @@ class Main(QtWidgets.QMainWindow):
             self.clock_label.setText("")
             self.now_label.setText(_("audio is missing: install python3-pyqt5.qtmultimedia")
                                    if not HAVE_AUDIO else _("nothing playing"))
-            self.play_row.setText("▶")
+            self.play_row.setText(waiting_label(time.time()) if self.waiting() else "▶")
+            self.keep_waiting()
             self.line.set_fraction(0)
             return
         position = self.player.position() if self.player else 0
@@ -4204,8 +4217,28 @@ class Main(QtWidgets.QMainWindow):
         tail = " · ".join(p for p in (clock(duration) if duration else "", (feed or {}).get("title", "")) if p)
         self.now_label.setText(self.current["title"] + ("   " + tail if tail else ""))
         playing = self.player and self.player.state() == QtMultimedia.QMediaPlayer.PlayingState
-        self.play_row.setText("❚❚" if playing else "▶")
+        waiting = self.waiting()
+        self.play_row.setText(waiting_label(time.time()) if waiting else "❚❚" if playing else "▶")
+        self.keep_waiting()
         self.line.set_fraction(position / duration if duration else 0)
+
+    def waiting(self):
+        """Asked to play, and the sound is still on its way: the player filling up from the
+        network, or a video being fetched before it can play."""
+        if getattr(self, "play_when_fetched", None):
+            return True
+        if not self.player or not self.current:
+            return False
+        P = QtMultimedia.QMediaPlayer
+        return (self.player.state() == P.PlayingState and
+                self.player.mediaStatus() in (P.LoadingMedia, P.BufferingMedia, P.StalledMedia))
+
+    def keep_waiting(self):
+        if self.waiting():
+            if not self.waiter.isActive():
+                self.waiter.start()
+        elif self.waiter.isActive():
+            self.waiter.stop()
 
     # ---- the rest ----
 
