@@ -23,7 +23,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -176,6 +176,7 @@ STRINGS = {
   "%d unheard": "%d à écouter",
   "settings": "réglages", "colours": "couleurs", "white on black": "blanc sur noir",
   "black on white": "noir sur blanc", "text size": "taille du texte", "font": "police",
+  "lavender": "lavande", "sage": "sauge", "nordic": "nordique", "terracotta": "terracotta", "coquette": "coquette", "activist": "militante", "sultry": "torride", "nature": "nature",
   "refresh on opening": "actualiser à l'ouverture", "delete once heard": "effacer une fois écouté", "hide episodes under 10 minutes": "masquer les épisodes de moins de 10 minutes", "trailers and snippets; favourites and downloads stay": "bandes-annonces et extraits ; les favoris et les téléchargements restent",
   "on": "actif", "off": "inactif", "today": "aujourd'hui", "yesterday": "hier",
   "speed": "vitesse", "play": "lire", "pause": "pause",
@@ -298,6 +299,7 @@ STRINGS = {
   "%d unheard": "%d ungehört",
   "settings": "Einstellungen", "colours": "Farben", "white on black": "weiss auf schwarz",
   "black on white": "schwarz auf weiss", "text size": "Textgrösse", "font": "Schrift",
+  "lavender": "Lavendel", "sage": "Salbei", "nordic": "nordisch", "terracotta": "Terrakotta", "coquette": "kokett", "activist": "kämpferisch", "sultry": "glühend", "nature": "Natur",
   "refresh on opening": "beim Öffnen aktualisieren", "delete once heard": "nach dem Hören löschen", "hide episodes under 10 minutes": "Episoden unter 10 Minuten ausblenden", "trailers and snippets; favourites and downloads stay": "Trailer und Ausschnitte; Favoriten und Downloads bleiben",
   "on": "an", "off": "aus", "today": "heute", "yesterday": "gestern",
   "speed": "Tempo", "play": "abspielen", "pause": "Pause",
@@ -420,6 +422,7 @@ STRINGS = {
   "%d unheard": "%d sin escuchar",
   "settings": "ajustes", "colours": "colores", "white on black": "blanco sobre negro",
   "black on white": "negro sobre blanco", "text size": "tamaño del texto", "font": "tipografía",
+  "lavender": "lavanda", "sage": "salvia", "nordic": "nórdico", "terracotta": "terracota", "coquette": "coqueta", "activist": "militante", "sultry": "tórrido", "nature": "naturaleza",
   "refresh on opening": "actualizar al abrir", "delete once heard": "borrar una vez escuchado", "hide episodes under 10 minutes": "ocultar los episodios de menos de 10 minutos", "trailers and snippets; favourites and downloads stay": "avances y fragmentos; los favoritos y las descargas se quedan",
   "on": "activo", "off": "inactivo", "today": "hoy", "yesterday": "ayer",
   "speed": "velocidad", "play": "reproducir", "pause": "pausa",
@@ -542,6 +545,7 @@ STRINGS = {
   "%d unheard": "%d por ouvir",
   "settings": "definições", "colours": "cores", "white on black": "branco sobre preto",
   "black on white": "preto sobre branco", "text size": "tamanho do texto", "font": "tipo de letra",
+  "lavender": "lavanda", "sage": "sálvia", "nordic": "nórdico", "terracotta": "terracota", "coquette": "coquete", "activist": "militante", "sultry": "tórrido", "nature": "natureza",
   "refresh on opening": "atualizar ao abrir", "delete once heard": "apagar depois de ouvido", "hide episodes under 10 minutes": "ocultar os episódios com menos de 10 minutos", "trailers and snippets; favourites and downloads stay": "trailers e excertos; os favoritos e as transferências ficam",
   "on": "ativa", "off": "inativa", "today": "hoje", "yesterday": "ontem",
   "speed": "velocidade", "play": "reproduzir", "pause": "pausa",
@@ -664,6 +668,7 @@ STRINGS = {
   "%d unheard": "не прослушано: %d",
   "settings": "настройки", "colours": "цвета", "white on black": "белое на чёрном",
   "black on white": "чёрное на белом", "text size": "размер текста", "font": "шрифт",
+  "lavender": "лаванда", "sage": "шалфей", "nordic": "северный", "terracotta": "терракота", "coquette": "кокетка", "activist": "активистка", "sultry": "знойный", "nature": "природа",
   "refresh on opening": "обновлять при открытии", "delete once heard": "удалять после прослушивания", "hide episodes under 10 minutes": "скрывать выпуски короче 10 минут", "trailers and snippets; favourites and downloads stay": "трейлеры и отрывки; избранное и загруженное остаются",
   "on": "вкл", "off": "выкл", "today": "сегодня", "yesterday": "вчера",
   "speed": "скорость", "play": "воспроизвести", "pause": "пауза",
@@ -2485,18 +2490,94 @@ def _extension(episode):
 # Settings
 # ------------------------------------------------------------------------------------------
 
-DEFAULTS = {"dark": True, "font": "sans", "font_size": 12, "view": VIEW_CHANNELS,
+DEFAULTS = {"theme": "DARK", "dark": True, "font": "sans", "font_size": 12, "view": VIEW_CHANNELS,
             "default_view": VIEW_CHANNELS, "auto_refresh": True, "delete_when_played": False,
             "speed": 1.0}
+
+# The colour themes shared by the Reader's apps: the two inks, then the palettes of the Plume
+# keyboard in its order. A theme is a background, a text colour, an accent and the colour written
+# on the accent; in the two inks the accent is the text colour, so they look as they always did.
+PALETTES = [("DARK", "#000000", "#ffffff", "#ffffff", "#000000"),
+            ("LIGHT", "#ffffff", "#000000", "#000000", "#ffffff"),
+            ("LAVANDE", "#1f1a2e", "#f4efff", "#b8a4ff", "#1f1a2e"),
+            ("SAUGE", "#d9e0d4", "#1e2a21", "#4c7a5b", "#ffffff"),
+            ("NORDIQUE", "#2e3440", "#eceff4", "#88c0d0", "#2e3440"),
+            ("TERRACOTTA", "#e6d9cc", "#2b211b", "#c25e38", "#ffffff"),
+            ("COQUETTE", "#f3d9dc", "#4a1f2b", "#d2455e", "#ffffff"),
+            ("MILITANTE", "#f2eee4", "#121212", "#e8412e", "#ffffff"),
+            ("TORRIDE", "#1e0d13", "#f8e9e6", "#e02a50", "#fff4f2"),
+            ("NATURE", "#2b2a24", "#f2efe4", "#d19a4e", "#2b2a24")]
+THEMES = [p[0] for p in PALETTES]
+THEME_LABELS = {"DARK": "white on black", "LIGHT": "black on white", "LAVANDE": "lavender",
+                "SAUGE": "sage", "NORDIQUE": "nordic", "TERRACOTTA": "terracotta",
+                "COQUETTE": "coquette", "MILITANTE": "activist", "TORRIDE": "sultry", "NATURE": "nature"}
+
+
+def palette(key):
+    """(key, bg, fg, accent, on_accent) of a theme; an unknown name is white on black."""
+    for p in PALETTES:
+        if p[0] == key:
+            return p
+    return PALETTES[0]
+
+
+def next_theme(key):
+    """The theme after this one, round and round."""
+    return THEMES[(THEMES.index(key) + 1) % len(THEMES)] if key in THEMES else THEMES[0]
+
+
+def theme_label(key):
+    return _(THEME_LABELS.get(key, THEME_LABELS["DARK"]))
+
+
+def theme_is_dark(key):
+    """Whether the background is dark — what an older version, which knows only `dark`, is told."""
+    r, g, b = _rgb(palette(key)[1])
+    return 0.299 * r + 0.587 * g + 0.114 * b < 128
+
+
+def theme_of(cfg):
+    """The theme of a config; one written before the themes carries only `dark`."""
+    key = cfg.get("theme")
+    if key in THEMES:
+        return key
+    return "DARK" if cfg.get("dark", True) else "LIGHT"
+
+
+def set_theme(cfg, key):
+    """Writes the theme, and `dark` beside it for the older versions and the phone's file."""
+    cfg["theme"] = key if key in THEMES else "DARK"
+    cfg["dark"] = theme_is_dark(cfg["theme"])
+    return cfg["theme"]
+
+
+def _rgb(hex_colour):
+    h = hex_colour.lstrip("#")
+    return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def rgba(hex_colour, alpha):
+    """The style sheet's dim and rule: the text colour, see-through."""
+    return "rgba(%d,%d,%d,%.2f)" % (_rgb(hex_colour) + (alpha,))
+
+
+def blend(hex_over, hex_under, alpha):
+    """The dim as a plain colour, for rich text that cannot see through."""
+    o, u = _rgb(hex_over), _rgb(hex_under)
+    return "#%02x%02x%02x" % tuple(round(a * alpha + b * (1 - alpha)) for a, b in zip(o, u))
 
 
 def load_config():
     cfg = dict(DEFAULTS)
     try:
         with open(CONFIG_FILE, encoding="utf-8") as fh:
-            cfg.update(json.load(fh))
+            saved = json.load(fh)
+        if "theme" not in saved:          # written before the themes: `dark` says which ink
+            cfg.pop("theme")
+        cfg.update(saved)
     except Exception:
         pass
+    set_theme(cfg, theme_of(cfg))
     return cfg
 
 
@@ -2515,7 +2596,7 @@ def save_config(cfg):
 
 def settings_for_backup(cfg):
     """The keys the phone writes, so one file serves both."""
-    return {"theme": "DARK" if cfg.get("dark", True) else "LIGHT",
+    return {"theme": theme_of(cfg),
             "default_view": cfg.get("default_view", VIEW_CHANNELS),
             "font": {"sans": "SANS", "serif": "SERIF", "mono": "MONO"}.get(cfg.get("font", "sans"), "SANS"),
             "auto_refresh": bool(cfg.get("auto_refresh", True)),
@@ -2525,7 +2606,8 @@ def settings_for_backup(cfg):
 
 def settings_from_backup(cfg, settings):
     if "theme" in settings:
-        cfg["dark"] = settings["theme"] != "LIGHT"
+        # The phone's names, the old DARK/LIGHT among them; its « as the phone » means the dark ink.
+        set_theme(cfg, settings["theme"] if settings["theme"] in THEMES else "DARK")
     if "font" in settings:
         cfg["font"] = {"SANS": "sans", "SERIF": "serif", "MONO": "mono"}.get(settings["font"], "sans")
     for key in ("auto_refresh", "delete_when_played"):
@@ -2545,7 +2627,7 @@ def settings_from_backup(cfg, settings):
 
 
 # ------------------------------------------------------------------------------------------
-# The look: two colours, text only, the selection inverted — the phone's rules on a window
+# The look: two colours and an accent, text only, the selection on the accent — the phone's rules on a window
 # ------------------------------------------------------------------------------------------
 
 class Clickable(QtWidgets.QLabel):
@@ -2569,7 +2651,7 @@ class Line(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.fraction = 0.0
-        self.fg, self.rule = QtGui.QColor("#fff"), QtGui.QColor(255, 255, 255, 64)
+        self.fg, self.rule = QtGui.QColor("#fff"), QtGui.QColor(255, 255, 255, 64)    # a thin line is text: it stays the text colour
         self.setFixedHeight(24)
         self.setCursor(QtCore.Qt.PointingHandCursor)
 
@@ -2590,11 +2672,12 @@ class Line(QtWidgets.QWidget):
 
 class EpisodeDelegate(QtWidgets.QStyledItemDelegate):
     """An episode: its title, then a dim line saying where it stands. The chosen one is drawn
-    inverted, like every selection in the Reader's apps."""
+    on the accent — inverted, in the two inks — like every selection in the Reader's apps."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.fg, self.bg = QtGui.QColor("#fff"), QtGui.QColor("#000")
+        self.accent, self.on_accent = QtGui.QColor("#fff"), QtGui.QColor("#000")
         self.big, self.small = QtGui.QFont(), QtGui.QFont()
 
     def sizeHint(self, option, index):
@@ -2607,7 +2690,7 @@ class EpisodeDelegate(QtWidgets.QStyledItemDelegate):
         p.save()
         r = option.rect.adjusted(22, 10, -22, -10)
         sel = bool(option.state & QtWidgets.QStyle.State_Selected)
-        fg, bg = (self.bg, self.fg) if sel else (self.fg, self.bg)
+        fg, bg = (self.on_accent, self.accent) if sel else (self.fg, self.bg)
         p.fillRect(option.rect, bg)
         dim = QtGui.QColor(fg)
         dim.setAlphaF(0.6 if sel else 0.55)
@@ -2661,6 +2744,7 @@ class FeedDelegate(QtWidgets.QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.fg, self.bg = QtGui.QColor("#fff"), QtGui.QColor("#000")
+        self.accent, self.on_accent = QtGui.QColor("#fff"), QtGui.QColor("#000")
         self.font = QtGui.QFont()
 
     def sizeHint(self, option, index):
@@ -2671,7 +2755,7 @@ class FeedDelegate(QtWidgets.QStyledItemDelegate):
     def paint(self, p, option, index):
         p.save()
         sel = bool(option.state & QtWidgets.QStyle.State_Selected)
-        fg, bg = (self.bg, self.fg) if sel else (self.fg, self.bg)
+        fg, bg = (self.on_accent, self.accent) if sel else (self.fg, self.bg)
         p.fillRect(option.rect, bg)
         if index.data(QtCore.Qt.UserRole) == self.RULE:
             rule = QtGui.QColor(self.fg)
@@ -2827,9 +2911,9 @@ class SettingsDialog(QtWidgets.QDialog):
         self.setWindowTitle(_("settings"))
         form = QtWidgets.QFormLayout(self)
         self.colours = QtWidgets.QComboBox()
-        self.colours.addItem(_("white on black"), True)
-        self.colours.addItem(_("black on white"), False)
-        self.colours.setCurrentIndex(0 if cfg.get("dark", True) else 1)
+        for key in THEMES:
+            self.colours.addItem(theme_label(key), key)
+        self.colours.setCurrentIndex(max(0, self.colours.findData(theme_of(cfg))))
         form.addRow(_("colours"), self.colours)
         self.font = QtWidgets.QComboBox()
         for key, label in (("sans", _("sans-serif")), ("serif", _("serif")), ("mono", _("mono"))):
@@ -2905,7 +2989,8 @@ class SettingsDialog(QtWidgets.QDialog):
         hint.setMinimumHeight(hint.heightForWidth(max(200, self.width() - margins.left() - margins.right())))
 
     def values(self):
-        return {"dark": self.colours.currentData(), "font": self.font.currentData(),
+        return {"theme": self.colours.currentData(), "dark": theme_is_dark(self.colours.currentData()),
+                "font": self.font.currentData(),
                 "font_size": self.size.value(), "auto_refresh": self.auto.isChecked(),
                 "delete_when_played": self.delete_played.isChecked(),
                 "hide_short": self.hide_short.isChecked(),
@@ -2947,7 +3032,7 @@ class Main(QtWidgets.QMainWindow):
         super().__init__()
         self.cfg = load_config()
         self.store = Store()
-        self.dark = bool(self.cfg.get("dark", True))
+        self.theme = theme_of(self.cfg)
         self.font_size = int(self.cfg.get("font_size", 12))
         self.view = self.cfg.get("view") or self.cfg.get("default_view", VIEW_EPISODES)
         if self.view == VIEW_CHANNELS:
@@ -3715,7 +3800,7 @@ class Main(QtWidgets.QMainWindow):
         menu.addAction(_("import settings"), self.import_settings)
         menu.addAction(_("export the settings"), self.export_settings)
         menu.addSeparator()
-        menu.addAction(_("white on black") if not self.dark else _("black on white"), self.toggle_theme)
+        menu.addAction(theme_label(next_theme(self.theme)), self.toggle_theme)
         menu.addAction(_("settings"), self.open_settings)
         menu.exec_(QtGui.QCursor.pos())
 
@@ -4045,7 +4130,7 @@ class Main(QtWidgets.QMainWindow):
             self.say(_("that file could not be read"))
             return
         self.cfg = settings_from_backup(self.cfg, data.get("settings") or {})
-        self.dark = bool(self.cfg.get("dark", True))
+        self.theme = theme_of(self.cfg)
         save_config(self.cfg)
         states = data.get("episodes") or []
         self.apply_states(states)
@@ -4274,7 +4359,7 @@ class Main(QtWidgets.QMainWindow):
         if dialog.exec_() != QtWidgets.QDialog.Accepted:
             return
         self.cfg.update(dialog.values())
-        self.dark = bool(self.cfg["dark"])
+        self.theme = set_theme(self.cfg, self.cfg["theme"])
         self.font_size = int(self.cfg["font_size"])
         save_config(self.cfg)
         self.apply_style()
@@ -4282,17 +4367,16 @@ class Main(QtWidgets.QMainWindow):
         self.send_to_library()
 
     def toggle_theme(self):
-        self.dark = not self.dark
-        self.cfg["dark"] = self.dark
+        """The next theme of the cycle: the other ink, then the Plume palettes, then round again."""
+        self.theme = set_theme(self.cfg, next_theme(self.theme))
         save_config(self.cfg)
         self.apply_style()
 
     def apply_style(self):
-        bg, fg = ("#000000", "#ffffff") if self.dark else ("#ffffff", "#000000")
-        dim = "rgba(255,255,255,0.55)" if self.dark else "rgba(0,0,0,0.55)"
-        rule = "rgba(255,255,255,0.25)" if self.dark else "rgba(0,0,0,0.25)"
+        _key, bg, fg, accent, on_accent = palette(self.theme)
+        dim, rule = rgba(fg, 0.55), rgba(fg, 0.25)
         s = self.font_size
-        self.colors = {"bg": bg, "fg": fg, "dim": "#8c8c8c" if self.dark else "#737373"}
+        self.colors = {"bg": bg, "fg": fg, "accent": accent, "on_accent": on_accent, "dim": blend(fg, bg, 0.55)}
         family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), SANS_FAMILY)
         self.setStyleSheet(f"""
             QMainWindow, QWidget {{ background: {bg}; color: {fg}; font-family: "{family}";
@@ -4313,16 +4397,17 @@ class Main(QtWidgets.QMainWindow):
             QScrollBar::add-page, QScrollBar::sub-page {{ background: {bg}; }}
             QMenu {{ background: {bg}; color: {fg}; border: 1px solid {rule}; padding: 4px 0; }}
             QMenu::item {{ padding: 6px 22px; }}
-            QMenu::item:selected {{ background: {fg}; color: {bg}; }}
+            QMenu::item:selected {{ background: {accent}; color: {on_accent}; }}
             QMenu::separator {{ height: 1px; background: {rule}; margin: 4px 0; }}
             QDialog QLineEdit, QComboBox, QSpinBox {{ background: {bg}; color: {fg}; border: 1px solid {rule}; padding: 6px; }}
-            QComboBox QAbstractItemView {{ background: {bg}; color: {fg}; selection-background-color: {fg}; selection-color: {bg}; }}
+            QComboBox QAbstractItemView {{ background: {bg}; color: {fg}; selection-background-color: {accent}; selection-color: {on_accent}; }}
             QPushButton {{ background: {bg}; color: {fg}; border: 1px solid {fg}; padding: 6px 18px; }}
-            QPushButton:default {{ background: {fg}; color: {bg}; }}
+            QPushButton:default {{ background: {accent}; color: {on_accent}; border-color: {accent}; }}
             QStatusBar {{ color: {dim}; border-top: 1px solid {rule}; }}
             QToolTip {{ background: {bg}; color: {fg}; border: 1px solid {rule}; }}
         """)
         self.delegate.fg, self.delegate.bg = QtGui.QColor(fg), QtGui.QColor(bg)
+        self.delegate.accent, self.delegate.on_accent = QtGui.QColor(accent), QtGui.QColor(on_accent)
         big = QtGui.QFont(family)
         big.setPointSize(s + 1)
         big.setWeight(QtGui.QFont.Light)
@@ -4331,6 +4416,7 @@ class Main(QtWidgets.QMainWindow):
         small.setWeight(QtGui.QFont.Light)
         self.delegate.big, self.delegate.small = big, small
         self.feed_delegate.fg, self.feed_delegate.bg = QtGui.QColor(fg), QtGui.QColor(bg)
+        self.feed_delegate.accent, self.feed_delegate.on_accent = QtGui.QColor(accent), QtGui.QColor(on_accent)
         self.feed_delegate.font = big
         self.feeds_list.doItemsLayout()
         self.line.fg = QtGui.QColor(fg)
