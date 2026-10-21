@@ -23,7 +23,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.9.0"
+VERSION = "1.10.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -1138,7 +1138,7 @@ SHORT_SECONDS = 10 * 60
 
 def without_short(episodes):
     """Without the episodes under ten minutes; one whose length is not known stays."""
-    return [e for e in episodes if not (0 < (e.get("duration") or 0) < SHORT_SECONDS)]
+    return [e for e in episodes if not (0 < (e.get("durationMs") or 0) < SHORT_SECONDS * 1000)]
 
 
 class Store:
@@ -2403,15 +2403,73 @@ def ytdlp_list_channel(feed_url, start, count):
 
 
 def ytdlp_describe(url):
-    """The words under one video and its publication date (0 when unknown): what a flat
-    listing leaves out, fetched when such a video is opened. Nothing is downloaded."""
-    o = ytdlp_json(["--skip-download", "--no-playlist", url])
+    """The words under one video, its publication date and its length (0 when unknown): what
+    a flat listing leaves out, fetched when such a video is opened — and the length of a short,
+    which the channel's page does not list. Nothing is downloaded."""
+    # No formats wanted here: without the option yt-dlp answers « null » when YouTube hides them.
+    o = ytdlp_json(["--skip-download", "--no-playlist", "--ignore-no-formats-error", url])
     day = o.get("upload_date") or ""
     try:
         published = int(datetime.strptime(day, "%Y%m%d").timestamp() * 1000)
     except ValueError:
         published = 0
-    return (o.get("description") or "", published)
+    return (o.get("description") or "", published, int((o.get("duration") or 0) * 1000))
+
+
+def youtube_video_id(url):
+    """`watch?v=ID`, `/shorts/ID` — the feed links a short that way — or `youtu.be/ID`."""
+    m = re.search(r"[?&]v=([\w-]+)|/shorts/([\w-]+)|youtu\.be/([\w-]+)", url or "")
+    return next((g for g in m.groups() if g), None) if m else None
+
+
+def lacking_lengths(episodes):
+    """The videos of a channel whose length is still to be asked for. The channel's feed never
+    gives one, and « hide the episodes under 10 minutes » cannot act on a video without one."""
+    return [e for e in episodes if not e.get("durationMs") and "youtube.com/" in (e.get("mediaUrl") or "")]
+
+
+def lengths_from_listing(episodes, listed):
+    """Episode id → length, for every episode without one that a flat listing knows."""
+    known = {vid: ms for vid, _title, ms in listed if ms > 0}
+    out = {}
+    for e in lacking_lengths(episodes):
+        ms = known.get(youtube_video_id(e["mediaUrl"]))
+        if ms:
+            out[e["id"]] = ms
+    return out
+
+
+# Videos asked for one by one at a refresh — the shorts, which the channel's page does not list.
+ONE_BY_ONE = 4
+
+
+def fill_lengths(feed, episodes):
+    """What a refresh of a YouTube channel still has to ask for: the lengths of its latest videos
+    from the channel's page in one request, then a few of the rest one by one. Returns
+    {episode id: fields}; a failure of the page is logged, and the refresh counts as done."""
+    found = {}
+    try:
+        for eid, ms in lengths_from_listing(episodes, ytdlp_list_channel(feed["url"], 1, 30)).items():
+            found[eid] = {"durationMs": ms}
+    except Exception as exc:
+        print("lengths of", feed.get("title"), "not listed:", exc, file=sys.stderr)
+    left = [e for e in lacking_lengths(episodes) if e["id"] not in found][:ONE_BY_ONE]
+    for e in left:
+        try:
+            description, published, ms = ytdlp_describe(e["mediaUrl"])
+        except Exception as exc:
+            print("length of", e["mediaUrl"], "not fetched:", exc, file=sys.stderr)
+            continue
+        fields = {}
+        if ms > 0:
+            fields["durationMs"] = ms
+        if description and not e.get("description"):
+            fields["description"] = description[:10000]
+        if published and not e.get("published"):
+            fields["published"] = published
+        if fields:
+            found[e["id"]] = fields
+    return found
 
 
 def older_episode(fid, video_id, title, duration_ms):
@@ -3604,11 +3662,13 @@ class Main(QtWidgets.QMainWindow):
         def done(result, error):
             if error or not result:
                 return
-            description, published = result
+            description, published, duration_ms = result
             fields = {"description": description[:10000]}
             current = self.store.episode(eid) or {}
             if not current.get("published") and published:
                 fields["published"] = published
+            if not current.get("durationMs") and duration_ms:
+                fields["durationMs"] = duration_ms
             self.store.update_episode(eid, **fields)
             self.refresh_episodes_list()
             if self.selected_id() == eid:
@@ -4028,6 +4088,30 @@ class Main(QtWidgets.QMainWindow):
                         if e["state"] == "NEW" and not e["localPath"]:
                             self.queue_download(e, quiet=True)
             self.refresh_all_lists()
+            self.ask_lengths([fid for fid, _parsed, failure in result if not failure])
+
+        self.run(job, done)
+
+    def ask_lengths(self, fids):
+        """After a refresh: the YouTube channels with videos whose length is not known yet ask
+        for them in the background, one channel after the other, and the lists follow."""
+        todo = [(self.store.feed(fid), self.store.episodes_of(fid)) for fid in fids]
+        todo = [(f, eps) for f, eps in todo if f and looks_like_youtube(f["url"]) and lacking_lengths(eps)]
+        if not todo:
+            return
+
+        def job(_progress):
+            found = {}
+            for feed, episodes in todo:
+                found.update(fill_lengths(feed, episodes))
+            return found
+
+        def done(found, error):
+            if error or not found:
+                return
+            for eid, fields in found.items():
+                self.store.update_episode(eid, **fields)
+            self.refresh_episodes_list()
 
         self.run(job, done)
 
@@ -4277,7 +4361,7 @@ class Main(QtWidgets.QMainWindow):
         self.player.setMedia(QtMultimedia.QMediaContent(source))
         self.player.setPlaybackRate(float(self.cfg.get("speed", 1.0)))
         start = episode.get("positionMs", 0)
-        if episode.get("durationMs") and start > episode["durationMs"] - 3000:
+        if (episode.get("durationMs") or 0) > 0 and start > episode["durationMs"] - 3000:
             start = 0
         if start:
             self.player.setPosition(start)
