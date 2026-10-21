@@ -23,7 +23,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.8.0"
+VERSION = "1.9.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -2497,16 +2497,20 @@ DEFAULTS = {"theme": "DARK", "dark": True, "font": "sans", "font_size": 12, "vie
 # The colour themes shared by the Reader's apps: the two inks, then the palettes of the Plume
 # keyboard in its order. A theme is a background, a text colour, an accent and the colour written
 # on the accent; in the two inks the accent is the text colour, so they look as they always did.
-PALETTES = [("DARK", "#000000", "#ffffff", "#ffffff", "#000000"),
-            ("LIGHT", "#ffffff", "#000000", "#000000", "#ffffff"),
-            ("LAVANDE", "#1f1a2e", "#f4efff", "#b8a4ff", "#1f1a2e"),
-            ("SAUGE", "#d9e0d4", "#1e2a21", "#4c7a5b", "#ffffff"),
-            ("NORDIQUE", "#2e3440", "#eceff4", "#88c0d0", "#2e3440"),
-            ("TERRACOTTA", "#e6d9cc", "#2b211b", "#c25e38", "#ffffff"),
-            ("COQUETTE", "#f3d9dc", "#4a1f2b", "#d2455e", "#ffffff"),
-            ("MILITANTE", "#f2eee4", "#121212", "#e8412e", "#ffffff"),
-            ("TORRIDE", "#1e0d13", "#f8e9e6", "#e02a50", "#fff4f2"),
-            ("NATURE", "#2b2a24", "#f2efe4", "#d19a4e", "#2b2a24")]
+# A palette adds three roles and the `tiles` flag: with a colour theme everything one can click is
+# a rounded card in the « key » colour (`tile`, `tile2` for a card inside a card), the pointer
+# shows the « press » colour, and what only reads stays on the surface. The two inks have no
+# cards: there a row is text on the page, as it always was.
+PALETTES = [("DARK", "#000000", "#ffffff", "#ffffff", "#000000", "#000000", "#000000", "#000000", False),
+            ("LIGHT", "#ffffff", "#000000", "#000000", "#ffffff", "#ffffff", "#ffffff", "#ffffff", False),
+            ("LAVANDE", "#1f1a2e", "#f4efff", "#b8a4ff", "#1f1a2e", "#3B3352", "#2B2540", "#5A4F78", True),
+            ("SAUGE", "#d9e0d4", "#1e2a21", "#4c7a5b", "#ffffff", "#F7F9F4", "#B5C2B2", "#B5C2B2", True),
+            ("NORDIQUE", "#2e3440", "#eceff4", "#88c0d0", "#2e3440", "#3B4252", "#353B4A", "#4C566A", True),
+            ("TERRACOTTA", "#e6d9cc", "#2b211b", "#c25e38", "#ffffff", "#FCF7F1", "#C8B6A5", "#C8B6A5", True),
+            ("COQUETTE", "#f3d9dc", "#4a1f2b", "#d2455e", "#ffffff", "#FFF7F5", "#E7BFC6", "#E7BFC6", True),
+            ("MILITANTE", "#f2eee4", "#121212", "#e8412e", "#ffffff", "#FFFFFF", "#D8D3C6", "#D8D3C6", True),
+            ("TORRIDE", "#1e0d13", "#f8e9e6", "#e02a50", "#fff4f2", "#561A2C", "#34121D", "#7A2A42", True),
+            ("NATURE", "#2b2a24", "#f2efe4", "#d19a4e", "#2b2a24", "#3A4733", "#2F3A2B", "#566650", True)]
 THEMES = [p[0] for p in PALETTES]
 THEME_LABELS = {"DARK": "white on black", "LIGHT": "black on white", "LAVANDE": "lavender",
                 "SAUGE": "sage", "NORDIQUE": "nordic", "TERRACOTTA": "terracotta",
@@ -2514,7 +2518,8 @@ THEME_LABELS = {"DARK": "white on black", "LIGHT": "black on white", "LAVANDE": 
 
 
 def palette(key):
-    """(key, bg, fg, accent, on_accent) of a theme; an unknown name is white on black."""
+    """(key, bg, fg, accent, on_accent, tile, tile2, press, tiles) of a theme; an unknown name is
+    white on black."""
     for p in PALETTES:
         if p[0] == key:
             return p
@@ -2554,6 +2559,34 @@ def set_theme(cfg, key):
 def _rgb(hex_colour):
     h = hex_colour.lstrip("#")
     return tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def arrow_images(fg):
+    """The small chevrons of a combo box and a spin box on a card: a style sheet can only take
+    them as pictures, so two are drawn in the text colour and kept beside the settings file.
+    Returns (down, up) file paths, or None if nothing could be written."""
+    try:
+        os.makedirs(CONFIG_DIR, exist_ok=True)
+        paths = []
+        for name, up in (("arrow-down", False), ("arrow-up", True)):
+            img = QtGui.QImage(12, 8, QtGui.QImage.Format_ARGB32)
+            img.fill(QtCore.Qt.transparent)
+            p = QtGui.QPainter(img)
+            p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+            pen = QtGui.QPen(QtGui.QColor(fg), 1.5)
+            p.setPen(pen)
+            if up:
+                p.drawPolyline(QtGui.QPolygonF([QtCore.QPointF(2, 6), QtCore.QPointF(6, 2), QtCore.QPointF(10, 6)]))
+            else:
+                p.drawPolyline(QtGui.QPolygonF([QtCore.QPointF(2, 2), QtCore.QPointF(6, 6), QtCore.QPointF(10, 2)]))
+            p.end()
+            path = os.path.join(CONFIG_DIR, name + ".png")
+            if not img.save(path):
+                return None
+            paths.append(path)
+        return tuple(paths)
+    except Exception:
+        return None
 
 
 def rgba(hex_colour, alpha):
@@ -2670,28 +2703,55 @@ class Line(QtWidgets.QWidget):
             self.seek.emit(e.x() / self.width())
 
 
+CARD_RADIUS, CARD_GAP_X, CARD_GAP_Y = 12, 8, 3      # a row's card: its corners, and the space around it
+
+
+def paint_row_ground(p, option, d, sel, card=True):
+    """The ground of a row drawn by a delegate. In the two inks: the page, or the accent under the
+    selected row, edge to edge, exactly as before. With a colour theme: the surface, and on it a
+    rounded card in the tile colour — the accent when selected, the press colour under the
+    pointer; a row that only reads (the empty-list message) gets no card."""
+    if not d.tiles:
+        p.fillRect(option.rect, d.accent if sel else d.bg)
+        return
+    p.fillRect(option.rect, d.bg)
+    if not card:
+        return
+    hover = bool(option.state & QtWidgets.QStyle.State_MouseOver)
+    p.setRenderHint(QtGui.QPainter.Antialiasing, True)
+    p.setPen(QtCore.Qt.NoPen)
+    p.setBrush(d.accent if sel else d.press if hover else d.tile)
+    p.drawRoundedRect(QtCore.QRectF(option.rect.adjusted(CARD_GAP_X, CARD_GAP_Y, -CARD_GAP_X, -CARD_GAP_Y)),
+                      CARD_RADIUS, CARD_RADIUS)
+    p.setBrush(QtCore.Qt.NoBrush)
+    p.setRenderHint(QtGui.QPainter.Antialiasing, False)
+
+
 class EpisodeDelegate(QtWidgets.QStyledItemDelegate):
     """An episode: its title, then a dim line saying where it stands. The chosen one is drawn
-    on the accent — inverted, in the two inks — like every selection in the Reader's apps."""
+    on the accent — inverted, in the two inks — like every selection in the Reader's apps. With
+    a colour theme each episode is a rounded card; the text keeps its inset from the edge."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.fg, self.bg = QtGui.QColor("#fff"), QtGui.QColor("#000")
         self.accent, self.on_accent = QtGui.QColor("#fff"), QtGui.QColor("#000")
+        self.tile, self.press, self.tiles = QtGui.QColor("#000"), QtGui.QColor("#000"), False
         self.big, self.small = QtGui.QFont(), QtGui.QFont()
 
     def sizeHint(self, option, index):
         key = index.data(QtCore.Qt.UserRole)
         two = key is not None and not str(key).startswith("season:")
         lines = QtGui.QFontMetrics(self.big).height() * (2 if two else 1)
-        return QtCore.QSize(100, lines + QtGui.QFontMetrics(self.small).height() + 22)
+        return QtCore.QSize(100, lines + QtGui.QFontMetrics(self.small).height() + 22 + (2 * CARD_GAP_Y if self.tiles else 0))
 
     def paint(self, p, option, index):
         p.save()
-        r = option.rect.adjusted(22, 10, -22, -10)
+        pad = 10 + (CARD_GAP_Y if self.tiles else 0)
+        r = option.rect.adjusted(22, pad, -22, -pad)
         sel = bool(option.state & QtWidgets.QStyle.State_Selected)
-        fg, bg = (self.on_accent, self.accent) if sel else (self.fg, self.bg)
-        p.fillRect(option.rect, bg)
+        fg = self.on_accent if sel else self.fg
+        paint_row_ground(p, option, self, sel, card=index.data(QtCore.Qt.UserRole) is not None)
         dim = QtGui.QColor(fg)
         dim.setAlphaF(0.6 if sel else 0.55)
         fb, fs = QtGui.QFontMetrics(self.big), QtGui.QFontMetrics(self.small)
@@ -2745,25 +2805,28 @@ class FeedDelegate(QtWidgets.QStyledItemDelegate):
         super().__init__(parent)
         self.fg, self.bg = QtGui.QColor("#fff"), QtGui.QColor("#000")
         self.accent, self.on_accent = QtGui.QColor("#fff"), QtGui.QColor("#000")
+        self.tile, self.press, self.tiles = QtGui.QColor("#000"), QtGui.QColor("#000"), False
         self.font = QtGui.QFont()
 
     def sizeHint(self, option, index):
         if index.data(QtCore.Qt.UserRole) == self.RULE:
-            return QtCore.QSize(10, 17)
-        return QtCore.QSize(100, QtGui.QFontMetrics(self.font).height() + 24)
+            return QtCore.QSize(10, 10 if self.tiles else 17)     # with cards the rule is only space
+        return QtCore.QSize(100, QtGui.QFontMetrics(self.font).height() + 24 + (2 * CARD_GAP_Y if self.tiles else 0))
 
     def paint(self, p, option, index):
         p.save()
         sel = bool(option.state & QtWidgets.QStyle.State_Selected)
-        fg, bg = (self.on_accent, self.accent) if sel else (self.fg, self.bg)
-        p.fillRect(option.rect, bg)
+        fg = self.on_accent if sel else self.fg
         if index.data(QtCore.Qt.UserRole) == self.RULE:
-            rule = QtGui.QColor(self.fg)
-            rule.setAlphaF(0.25)
-            y = option.rect.center().y()
-            p.fillRect(option.rect.left() + 22, y, option.rect.width() - 44, 1, rule)
+            p.fillRect(option.rect, self.bg)
+            if not self.tiles:
+                rule = QtGui.QColor(self.fg)
+                rule.setAlphaF(0.25)
+                y = option.rect.center().y()
+                p.fillRect(option.rect.left() + 22, y, option.rect.width() - 44, 1, rule)
             p.restore()
             return
+        paint_row_ground(p, option, self, sel)
         r = option.rect.adjusted(22, 0, -22, 0)
         metrics = QtGui.QFontMetrics(self.font)
         count = index.data(QtCore.Qt.UserRole + 1) or ""
@@ -2824,7 +2887,12 @@ class AddDialog(QtWidgets.QDialog):
         label = QtWidgets.QLabel("<div>%s</div><div style='color:%s; font-size:%dpt'>%s</div>" % (
             html.escape(title), dim, max(8, self.main.font_size - 2), html.escape(secondary)))
         label.setWordWrap(True)
-        label.setContentsMargins(4, 8, 4, 8)
+        # With a colour theme the row is a card drawn by the list, which places the label inside
+        # the card's own inset (its margin and padding): the label then needs none of its own, but
+        # the row must be taller by that inset.
+        tiles = getattr(self.main, "tiles", False)
+        inset_w, inset_h = (2 * (CARD_GAP_X + 12), 2 * (CARD_GAP_Y + 8)) if tiles else (0, 0)
+        label.setContentsMargins(0, 0, 0, 0) if tiles else label.setContentsMargins(4, 8, 4, 8)
         label.setMinimumHeight(44)
         label.setCursor(QtCore.Qt.PointingHandCursor)
         label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
@@ -2832,7 +2900,7 @@ class AddDialog(QtWidgets.QDialog):
         item.setData(QtCore.Qt.UserRole, action)
         self.list.addItem(item)
         self.list.setItemWidget(item, label)
-        item.setSizeHint(QtCore.QSize(0, max(44, label.heightForWidth(self.list.viewport().width() - 8))))
+        item.setSizeHint(QtCore.QSize(0, max(44, label.heightForWidth(self.list.viewport().width() - 8 - inset_w)) + inset_h))
 
     def changed(self, *_args):
         self.generation += 1
@@ -3033,6 +3101,7 @@ class Main(QtWidgets.QMainWindow):
         self.cfg = load_config()
         self.store = Store()
         self.theme = theme_of(self.cfg)
+        self.tiles = False           # set by apply_style: a colour theme draws cards, an ink does not
         self.font_size = int(self.cfg.get("font_size", 12))
         self.view = self.cfg.get("view") or self.cfg.get("default_view", VIEW_EPISODES)
         if self.view == VIEW_CHANNELS:
@@ -3082,6 +3151,7 @@ class Main(QtWidgets.QMainWindow):
         # Nothing here ever scrolls sideways: a list of names that could slide left is a list
         # whose first letters go missing.
         self.feeds_list.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.feeds_list.viewport().setAttribute(QtCore.Qt.WA_Hover, True)      # the card under the pointer
         self.feed_delegate = FeedDelegate(self)
         self.feeds_list.setItemDelegate(self.feed_delegate)
         self.feeds_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -3129,6 +3199,7 @@ class Main(QtWidgets.QMainWindow):
         self.episodes_list = QtWidgets.QListWidget()
         self.episodes_list.setObjectName("episodes")
         self.episodes_list.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.episodes_list.viewport().setAttribute(QtCore.Qt.WA_Hover, True)
         self.delegate = EpisodeDelegate(self)
         self.episodes_list.setItemDelegate(self.delegate)
         self.episodes_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -3185,16 +3256,16 @@ class Main(QtWidgets.QMainWindow):
 
         controls = QtWidgets.QHBoxLayout()
         controls.setSpacing(24)
-        self.back_row = Clickable("−5 s")
+        self.back_row = Clickable("−5 s", "ctrl")
         self.back_row.clicked.connect(lambda: self.seek_by(-5000))
-        self.play_row = Clickable("▶")
+        self.play_row = Clickable("▶", "play")
         self.play_row.clicked.connect(self.toggle)
-        self.fwd_row = Clickable("+10 s")
+        self.fwd_row = Clickable("+10 s", "ctrl")
         self.fwd_row.clicked.connect(lambda: self.seek_by(10000))
         for w in (self.back_row, self.play_row, self.fwd_row):
             controls.addWidget(w)
         controls.addStretch(1)
-        self.speed_row = Clickable("")
+        self.speed_row = Clickable("", "ctrl")
         self.speed_row.clicked.connect(self.next_speed)
         controls.addWidget(self.speed_row)
         box.addLayout(controls)
@@ -4292,6 +4363,7 @@ class Main(QtWidgets.QMainWindow):
             self.now_label.setText(_("audio is missing: install python3-pyqt5.qtmultimedia")
                                    if not HAVE_AUDIO else _("nothing playing"))
             self.play_row.setText(waiting_label(time.time()) if self.waiting() else "▶")
+            self.set_sounding(False)
             self.keep_waiting()
             self.line.set_fraction(0)
             return
@@ -4304,8 +4376,18 @@ class Main(QtWidgets.QMainWindow):
         playing = self.player and self.player.state() == QtMultimedia.QMediaPlayer.PlayingState
         waiting = self.waiting()
         self.play_row.setText(waiting_label(time.time()) if waiting else "❚❚" if playing else "▶")
+        self.set_sounding(bool(playing))
         self.keep_waiting()
         self.line.set_fraction(position / duration if duration else 0)
+
+    def set_sounding(self, on):
+        """With a colour theme the play card takes the accent while the sound plays; the style
+        sheet reads it from this property, so it is told once the value changes."""
+        if self.play_row.property("sounding") == on:
+            return
+        self.play_row.setProperty("sounding", on)
+        self.play_row.style().unpolish(self.play_row)
+        self.play_row.style().polish(self.play_row)
 
     def waiting(self):
         """Asked to play, and the sound is still on its way: the player filling up from the
@@ -4373,11 +4455,50 @@ class Main(QtWidgets.QMainWindow):
         self.apply_style()
 
     def apply_style(self):
-        _key, bg, fg, accent, on_accent = palette(self.theme)
+        _key, bg, fg, accent, on_accent, tile, _tile2, press, tiles = palette(self.theme)
         dim, rule = rgba(fg, 0.55), rgba(fg, 0.25)
         s = self.font_size
-        self.colors = {"bg": bg, "fg": fg, "accent": accent, "on_accent": on_accent, "dim": blend(fg, bg, 0.55)}
+        self.tiles = tiles
+        self.colors = {"bg": bg, "fg": fg, "accent": accent, "on_accent": on_accent, "dim": blend(fg, bg, 0.55),
+                       "tile": tile, "press": press, "tiles": tiles}
         family = {"serif": "serif", "mono": "monospace"}.get(self.cfg.get("font"), SANS_FAMILY)
+        chevrons = arrow_images(fg) if tiles else None
+        arrows = (f"QComboBox::down-arrow, QSpinBox::down-arrow {{ image: url({chevrons[0]}); }}"
+                  f"QSpinBox::up-arrow {{ image: url({chevrons[1]}); }}") if chevrons else ""
+        # With a colour theme, what one can click is a rounded card on the surface — the rows of
+        # the lists, the controls, the buttons, the fields, the menu — and the rules that set
+        # things apart become space. What only reads (the notes, the position line, the labels,
+        # a dialog's page) stays on the surface. The two inks get none of this: text on the page.
+        cards = f"""
+            QLabel#newrow {{ background: {tile}; border: none; border-radius: {CARD_RADIUS}px; margin: {CARD_GAP_Y}px {CARD_GAP_X}px; padding: 11px 14px; }}
+            QLabel#newrow:hover {{ background: {press}; }}
+            QLabel#more {{ background: {tile}; border-radius: 10px; padding: 0 10px; }}
+            QLabel#more:hover {{ background: {press}; }}
+            QLabel#ctrl, QLabel#play {{ background: {tile}; border-radius: 10px; padding: 6px 14px; }}
+            QLabel#ctrl:hover, QLabel#play:hover {{ background: {press}; }}
+            QLabel#play[sounding="true"] {{ background: {accent}; color: {on_accent}; }}
+            QFrame#sep {{ background: transparent; }}
+            QListWidget#feeds {{ border-right: none; }}
+            QListWidget::item, QListView::item {{ background: {tile}; border-radius: {CARD_RADIUS}px; margin: {CARD_GAP_Y}px {CARD_GAP_X}px; padding: 8px 12px; }}
+            QListWidget::item:hover, QListView::item:hover {{ background: {press}; }}
+            QListWidget::item:selected, QListView::item:selected {{ background: {accent}; color: {on_accent}; }}
+            QListWidget#found QLabel {{ background: transparent; }}
+            QTextBrowser#details {{ border-left: none; }}
+            QLineEdit#find {{ background: {tile}; border-radius: 10px; padding: 8px 12px; margin: {CARD_GAP_Y}px {CARD_GAP_X}px; }}
+            QMenu {{ background: {tile}; border: none; padding: 6px 0; }}
+            QMenu::separator {{ background: transparent; height: 4px; }}
+            QDialog QLineEdit, QComboBox, QSpinBox {{ background: {tile}; border: none; border-radius: 10px; padding: 8px 12px; }}
+            QLineEdit {{ selection-background-color: {accent}; selection-color: {on_accent}; }}
+            QComboBox::drop-down {{ border: none; width: 28px; }}
+            QSpinBox::up-button, QSpinBox::down-button {{ border: none; width: 22px; }}
+            {arrows}
+            QComboBox QAbstractItemView {{ background: {tile}; }}
+            QPushButton {{ background: {tile}; border: none; border-radius: 10px; padding: 8px 18px; }}
+            QPushButton:hover, QPushButton:pressed {{ background: {press}; }}
+            QPushButton:default {{ background: {accent}; color: {on_accent}; }}
+            QStatusBar {{ border-top: none; }}
+            QToolTip {{ background: {tile}; border: none; }}
+        """ if tiles else ""
         self.setStyleSheet(f"""
             QMainWindow, QWidget {{ background: {bg}; color: {fg}; font-family: "{family}";
                                     font-size: {s}pt; font-weight: 300; }}
@@ -4405,9 +4526,10 @@ class Main(QtWidgets.QMainWindow):
             QPushButton:default {{ background: {accent}; color: {on_accent}; border-color: {accent}; }}
             QStatusBar {{ color: {dim}; border-top: 1px solid {rule}; }}
             QToolTip {{ background: {bg}; color: {fg}; border: 1px solid {rule}; }}
-        """)
+        """ + cards)
         self.delegate.fg, self.delegate.bg = QtGui.QColor(fg), QtGui.QColor(bg)
         self.delegate.accent, self.delegate.on_accent = QtGui.QColor(accent), QtGui.QColor(on_accent)
+        self.delegate.tile, self.delegate.press, self.delegate.tiles = QtGui.QColor(tile), QtGui.QColor(press), tiles
         big = QtGui.QFont(family)
         big.setPointSize(s + 1)
         big.setWeight(QtGui.QFont.Light)
@@ -4417,6 +4539,7 @@ class Main(QtWidgets.QMainWindow):
         self.delegate.big, self.delegate.small = big, small
         self.feed_delegate.fg, self.feed_delegate.bg = QtGui.QColor(fg), QtGui.QColor(bg)
         self.feed_delegate.accent, self.feed_delegate.on_accent = QtGui.QColor(accent), QtGui.QColor(on_accent)
+        self.feed_delegate.tile, self.feed_delegate.press, self.feed_delegate.tiles = QtGui.QColor(tile), QtGui.QColor(press), tiles
         self.feed_delegate.font = big
         self.feeds_list.doItemsLayout()
         self.line.fg = QtGui.QColor(fg)

@@ -19,8 +19,21 @@ class Themes(unittest.TestCase):
 
     def test_the_inks_keep_their_accent_as_the_text_colour(self):
         for key in ("DARK", "LIGHT"):
-            _k, bg, fg, accent, on_accent = rp.palette(key)
+            _k, bg, fg, accent, on_accent = rp.palette(key)[:5]
             self.assertEqual((accent, on_accent), (fg, bg))
+
+    def test_the_inks_have_no_cards_and_every_palette_has_its_three_roles(self):
+        for key in ("DARK", "LIGHT"):
+            _k, bg, _fg, _a, _oa, tile, tile2, press, tiles = rp.palette(key)
+            self.assertFalse(tiles)
+            self.assertEqual((tile, tile2, press), (bg, bg, bg))
+        for key in rp.THEMES[2:]:
+            _k, bg, _fg, _a, _oa, tile, tile2, press, tiles = rp.palette(key)
+            self.assertTrue(tiles, key)
+            self.assertNotEqual(tile, bg, key)
+        self.assertEqual(rp.palette("TERRACOTTA")[5:], ("#FCF7F1", "#C8B6A5", "#C8B6A5", True))
+        self.assertEqual(rp.palette("LAVANDE")[5:], ("#3B3352", "#2B2540", "#5A4F78", True))
+        self.assertFalse(rp.palette("nonsense")[8])
 
     def test_an_old_config_with_only_dark_keeps_its_ink(self):
         self.assertEqual(rp.theme_of({"dark": False}), "LIGHT")
