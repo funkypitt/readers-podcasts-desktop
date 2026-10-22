@@ -23,7 +23,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.10.0"
+VERSION = "1.10.1"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -1136,9 +1136,15 @@ def backup_export(settings, feeds, episodes):
 SHORT_SECONDS = 10 * 60
 
 
+def is_short(e):
+    """A YouTube short: the channel's feed links it as /shorts/ID. Short by nature, whatever its length says."""
+    return "youtube.com/shorts/" in (e.get("mediaUrl") or "")
+
+
 def without_short(episodes):
-    """Without the episodes under ten minutes; one whose length is not known stays."""
-    return [e for e in episodes if not (0 < (e.get("durationMs") or 0) < SHORT_SECONDS * 1000)]
+    """Without the short ones — a YouTube short by its address, anything else by its length;
+    one whose length is not known stays."""
+    return [e for e in episodes if not is_short(e) and not (0 < (e.get("durationMs") or 0) < SHORT_SECONDS * 1000)]
 
 
 class Store:
@@ -2453,7 +2459,8 @@ def fill_lengths(feed, episodes):
             found[eid] = {"durationMs": ms}
     except Exception as exc:
         print("lengths of", feed.get("title"), "not listed:", exc, file=sys.stderr)
-    left = [e for e in lacking_lengths(episodes) if e["id"] not in found][:ONE_BY_ONE]
+    # A short is known by its address and needs no length to be hidden: not worth a request of its own.
+    left = [e for e in lacking_lengths(episodes) if e["id"] not in found and not is_short(e)][:ONE_BY_ONE]
     for e in left:
         try:
             description, published, ms = ytdlp_describe(e["mediaUrl"])

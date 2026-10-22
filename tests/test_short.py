@@ -14,6 +14,11 @@ class Short(unittest.TestCase):
                {"id": "nine", "durationMs": 9 * 60_000}, {"id": "ten", "durationMs": 600_000}, {"id": "zero", "durationMs": 0}]
         self.assertEqual(["talk", "unknown", "ten", "zero"], [e["id"] for e in rp.without_short(eps)])
 
+    def test_a_short_is_known_by_its_address_whatever_its_length(self):
+        short = {"id": "short", "mediaUrl": "https://www.youtube.com/shorts/gDQB1rGT4pg", "durationMs": 0}
+        eps = [{"id": "talk", "durationMs": 2700_000}, short, dict(short, id="long short", durationMs=15 * 60_000)]
+        self.assertEqual(["talk"], [e["id"] for e in rp.without_short(eps)])
+
     def test_lengths_come_from_the_listing_by_video_id(self):
         def ep(eid, vid, ms=0):
             return {"id": eid, "mediaUrl": "https://www.youtube.com/watch?v=" + vid, "durationMs": ms}
