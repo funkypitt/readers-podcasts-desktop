@@ -682,6 +682,43 @@ STRINGS = {
  },
 }
 
+# The spoken language: found by listening, named on the rows that start the writing down,
+# checked when chosen by hand. The names of the languages are the ones said inside a sentence.
+_SPOKEN_STRINGS = {
+ "fr": {"write down · language: %s": "mettre par écrit · langue : %s", "recognised automatically": "reconnue automatiquement",
+        "listening for the spoken language…": "écoute de la langue parlée…",
+        "language heard: %s": "langue entendue : %s", "language heard: %s — chosen: %s": "langue entendue : %s — choisie : %s",
+        "language heard: %s · language chosen: %s": "langue entendue : %s · langue choisie : %s",
+        "English": "anglais", "French": "français", "German": "allemand", "Spanish": "espagnol", "Italian": "italien",
+        "Portuguese": "portugais", "Russian": "russe", "Dutch": "néerlandais"},
+ "de": {"write down · language: %s": "niederschreiben · Sprache: %s", "recognised automatically": "automatisch erkannt",
+        "listening for the spoken language…": "die gesprochene Sprache wird erkannt…",
+        "language heard: %s": "gehörte Sprache: %s", "language heard: %s — chosen: %s": "gehörte Sprache: %s — gewählt: %s",
+        "language heard: %s · language chosen: %s": "gehörte Sprache: %s · gewählte Sprache: %s",
+        "English": "Englisch", "French": "Französisch", "German": "Deutsch", "Spanish": "Spanisch", "Italian": "Italienisch",
+        "Portuguese": "Portugiesisch", "Russian": "Russisch", "Dutch": "Niederländisch"},
+ "es": {"write down · language: %s": "poner por escrito · idioma: %s", "recognised automatically": "reconocido automáticamente",
+        "listening for the spoken language…": "escuchando el idioma hablado…",
+        "language heard: %s": "idioma oído: %s", "language heard: %s — chosen: %s": "idioma oído: %s — elegido: %s",
+        "language heard: %s · language chosen: %s": "idioma oído: %s · idioma elegido: %s",
+        "English": "inglés", "French": "francés", "German": "alemán", "Spanish": "español", "Italian": "italiano",
+        "Portuguese": "portugués", "Russian": "ruso", "Dutch": "neerlandés"},
+ "pt": {"write down · language: %s": "passar a escrito · língua: %s", "recognised automatically": "reconhecida automaticamente",
+        "listening for the spoken language…": "a ouvir a língua falada…",
+        "language heard: %s": "língua ouvida: %s", "language heard: %s — chosen: %s": "língua ouvida: %s — escolhida: %s",
+        "language heard: %s · language chosen: %s": "língua ouvida: %s · língua escolhida: %s",
+        "English": "inglês", "French": "francês", "German": "alemão", "Spanish": "espanhol", "Italian": "italiano",
+        "Portuguese": "português", "Russian": "russo", "Dutch": "neerlandês"},
+ "ru": {"write down · language: %s": "записать текстом · язык: %s", "recognised automatically": "определяется автоматически",
+        "listening for the spoken language…": "определяем язык речи…",
+        "language heard: %s": "услышанный язык: %s", "language heard: %s — chosen: %s": "услышанный язык: %s — выбран: %s",
+        "language heard: %s · language chosen: %s": "услышанный язык: %s · выбранный язык: %s",
+        "English": "английский", "French": "французский", "German": "немецкий", "Spanish": "испанский", "Italian": "итальянский",
+        "Portuguese": "португальский", "Russian": "русский", "Dutch": "нидерландский"},
+}
+for _code, _more in _SPOKEN_STRINGS.items():
+    STRINGS[_code].update(_more)
+
 
 def _lang():
     for name in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
@@ -1355,6 +1392,16 @@ SPEECH_LANGUAGES = ("fr", "en", "de", "es", "it", "pt", "ru", "nl")
 TRANSLATE_LANGUAGES = ("fr", "en", "de", "es", "pt", "ru")
 LANGUAGE_NAMES = {"fr": "français", "en": "English", "de": "Deutsch", "es": "español", "it": "italiano",
                   "pt": "português", "ru": "русский", "nl": "Nederlands"}
+SPOKEN_NAMES = {"en": "English", "fr": "French", "de": "German", "es": "Spanish", "it": "Italian",
+                "pt": "Portuguese", "ru": "Russian", "nl": "Dutch"}
+
+
+def spoken_name(code):
+    """'en' → 'anglais' on a French computer: the language as said inside a sentence; "" is the
+    language found by listening."""
+    if not code:
+        return _("recognised automatically")
+    return _(SPOKEN_NAMES[code]) if code in SPOKEN_NAMES else LANGUAGE_NAMES.get(code, code)
 # Two qualities, the phone's: quick and decent, or clearly better and several times slower.
 QUALITIES = {"normal": {"faster": "small", "openai": "small", "cpp": "ggml-small-q5_1.bin"},
              "high": {"faster": "large-v3-turbo", "openai": "turbo", "cpp": "ggml-large-v3-turbo-q5_0.bin"}}
@@ -1369,6 +1416,7 @@ class Lines(list):
     speakers = None
     starts = None
     words = None
+    heard = None        # the language found by listening, while a transcript is being made
 
 
 def transcript_path(eid, language=None):
@@ -1507,16 +1555,183 @@ def find_whisper(cfg=None):
     return None
 
 
-# Run by the Python that has faster-whisper: one JSON object per line — the length of the
-# sound, each line as it is heard, the language at the end. The graphics card when there is
-# one, the processor otherwise.
-_FASTER_SCRIPT = r"""
+# Which language is spoken, found before writing down. Whisper left to itself guesses from the
+# first thirty seconds: music, a jingle or a greeting there, and it guesses wrong — and then it
+# does not write nonsense, it writes a fluent translation, which nobody notices until reading.
+# So the guess is made over several passages spread through the episode, each chosen because the
+# voice detector (Silero) hears speech in it, and the probabilities are averaged (the rule of
+# Reader's speech module on the phone, Language.kt). The same passages check a language chosen
+# by hand: when the episode plainly speaks another one, the app asks before writing it down.
+# This runs in the Python that has faster-whisper, so it is written as a script's beginning;
+# the app reads the same text for itself (LANGUAGE below), and the tests check it there.
+_LANGUAGE_PY = r'''
+WINDOW = 30 * 16000     # thirty seconds at 16 kHz: what Whisper looks at for one guess
+PASSAGES = 3            # passages whose guesses are averaged
+CANDIDATES = 9          # places looked at to find them (Silero is quick, Whisper's encoder is not)
+SPEECH = 0.4            # a passage counts as speech above this share
+SURE = 0.7              # for the check: what the detection must be sure of...
+UNLIKELY = 0.1          # ...and how little chance it must leave the language chosen
+
+
+def candidates(total, count=CANDIDATES):
+    """Where to look, in samples: windows spread evenly, the first and last kept clear of the
+    very edges (jingles live there). A sound shorter than a window is one window."""
+    if total <= WINDOW:
+        return [0]
+    room = total - WINDOW
+    n = max(1, min(count, max(1, total // WINDOW)))
+    places = []
+    for i in range(n):
+        p = room * (2 * i + 1) // (2 * n)
+        if p not in places:
+            places.append(p)
+    return places
+
+
+def choose(shares):
+    """From [(place, share of speech, or None without the detector)], the most spoken passages;
+    without the detector, passages spread over the sound; none when nothing sounds like speech."""
+    if not shares:
+        return []
+    if any(s is None for _p, s in shares):
+        step = max(1.0, len(shares) / PASSAGES)
+        out = []
+        for i in range(min(PASSAGES, len(shares))):
+            p = shares[min(int(i * step + step / 2), len(shares) - 1)][0]
+            if p not in out:
+                out.append(p)
+        return out
+    ranked = sorted(shares, key=lambda x: -x[1])
+    spoken = [p for p, s in ranked if s >= SPEECH]
+    if spoken:
+        return sorted(spoken[:PASSAGES])
+    return [ranked[0][0]] if ranked[0][1] > 0.05 else []
+
+
+def combine(guesses):
+    """Each language's probability averaged over the passages, or None when there were none."""
+    usable = [g for g in guesses if g]
+    if not usable:
+        return None
+    total = {}
+    for g in usable:
+        for k, v in g.items():
+            total[k] = total.get(k, 0.0) + v
+    probs = {k: v / len(usable) for k, v in total.items()}
+    best = max(probs, key=probs.get)
+    return {"language": best, "confidence": probs[best], "probs": probs, "passages": len(usable)}
+
+
+def suggest(chosen, heard):
+    """The language to suggest when the one chosen is plainly not spoken, else None: the
+    detection is sure and gives the chosen one almost no chance (an accent must not ask)."""
+    if not heard or not chosen or heard["language"] == chosen:
+        return None
+    if heard["confidence"] >= SURE and heard["probs"].get(chosen, 0.0) < UNLIKELY:
+        return heard["language"]
+    return None
+
+
+def speech_share(window):
+    try:
+        from faster_whisper.vad import VadOptions, get_speech_timestamps
+        stamps = get_speech_timestamps(window, VadOptions(min_silence_duration_ms=300, speech_pad_ms=0))
+    except Exception:
+        return None
+    return sum(s["end"] - s["start"] for s in stamps) / max(1, len(window))
+
+
+def language_probs(model, window):
+    if not getattr(model.model, "is_multilingual", True):
+        return {}
+    if hasattr(model, "detect_language"):
+        _l, _p, probs = model.detect_language(audio=window)
+        return {k: float(v) for k, v in probs}
+    from faster_whisper.audio import pad_or_trim
+    features = model.feature_extractor(window)[..., :model.feature_extractor.nb_max_frames]
+    result = model.model.detect_language(model.encode(pad_or_trim(features)))[0]
+    return {token[2:-2]: float(p) for token, p in result}
+
+
+def detect(model, audio):
+    """The language heard over a whole sound (float samples at 16 kHz), or None."""
+    shares = [(at, speech_share(audio[at:at + WINDOW])) for at in candidates(len(audio))]
+    return combine([language_probs(model, audio[at:at + WINDOW]) for at in choose(shares)])
+'''
+LANGUAGE = {}
+exec(_LANGUAGE_PY, LANGUAGE)
+
+
+class LanguageDoubt(Exception):
+    """The language chosen by hand is plainly not the one heard: asked before writing down."""
+
+    def __init__(self, heard, suggested):
+        super().__init__(suggested)
+        self.heard, self.suggested = heard, suggested
+
+
+def heard_path(eid):
+    return os.path.join(TRANSCRIPTS_DIR, eid + ".heard.json")
+
+
+def heard_load(eid):
+    """What was heard of an episode: {"heard": code, "used": code, "kept": [codes the listener
+    kept after the question]}; {} when nothing is known."""
+    try:
+        with open(heard_path(eid), encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def heard_save(eid, **fields):
+    data = heard_load(eid)
+    data.update(fields)
+    os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+    with open(heard_path(eid), "w", encoding="utf-8") as fh:
+        json.dump(data, fh)
+
+
+def parse_heard(rows):
+    """From what the script below printed: (heard, suggested) — the detection, and the language
+    to suggest when the one chosen is plainly not spoken."""
+    heard, doubt = None, None
+    for row in rows:
+        try:
+            o = json.loads(row)
+        except ValueError:
+            continue
+        if isinstance(o, dict) and "heard" in o:
+            heard = o["heard"]
+        elif isinstance(o, dict) and "doubt" in o:
+            doubt = o["doubt"]
+    return heard, doubt
+
+
+# Run by the Python that has faster-whisper: one JSON object per line — the language heard,
+# the length of the sound, each line as it is heard, the language at the end. The graphics card
+# when there is one, the processor otherwise. With a language chosen and « check », the
+# language is heard first and nothing is written when it is plainly another.
+_FASTER_SCRIPT = _LANGUAGE_PY + r"""
 import json, sys
-from faster_whisper import WhisperModel
-audio, name, language = sys.argv[1], sys.argv[2], sys.argv[3] or None
+from faster_whisper import WhisperModel, decode_audio
+path, name, language = sys.argv[1], sys.argv[2], sys.argv[3] or None
+check = len(sys.argv) > 4 and sys.argv[4] == "check"
 def run(device, kind):
     model = WhisperModel(name, device=device, compute_type=kind)
-    segments, info = model.transcribe(audio, language=language, vad_filter=True, word_timestamps=True)
+    audio = decode_audio(path)
+    heard = None
+    if not language or check:
+        print(json.dumps({"listening": True}), flush=True)
+        heard = detect(model, audio)
+        print(json.dumps({"heard": heard}), flush=True)
+        if language and suggest(language, heard):
+            print(json.dumps({"doubt": suggest(language, heard)}), flush=True)
+            return
+    # the language heard (or chosen) holds for the whole episode
+    use = language or (heard or {}).get("language")
+    segments, info = model.transcribe(audio, language=use, vad_filter=True, word_timestamps=True)
     print(json.dumps({"d": info.duration}), flush=True)
     for s in segments:
         words = [[w.start, w.end, w.word] for w in (s.words or [])]
@@ -1602,10 +1817,12 @@ def _fetch_model(name, on_progress, cancelled):
     return path
 
 
-def transcribe(engine, audio, quality, language, duration_ms, on_progress, cancelled):
+def transcribe(engine, audio, quality, language, duration_ms, on_progress, cancelled, check=False, on_listening=None):
     """Speech written down by the program found: (language, [(start, end, text)]). `language`
-    is a two-letter code, or "" to let the program work it out. Blocking; `cancelled()` is
-    asked along the way."""
+    is a two-letter code, or "" for the language found by listening (faster-whisper; the other
+    programs guess it themselves). With `check`, a language chosen that the episode plainly
+    does not speak raises LanguageDoubt before anything is written. The lines carry `heard`,
+    the detection, when one was made. Blocking; `cancelled()` is asked along the way."""
     import shutil
     import subprocess
     import tempfile
@@ -1644,13 +1861,21 @@ def transcribe(engine, audio, quality, language, duration_ms, on_progress, cance
                     o = json.loads(line)
                 except ValueError:
                     return
-                if isinstance(o, dict) and "d" in o:
+                if isinstance(o, dict) and "listening" in o and on_listening:
+                    on_listening(True)
+                elif isinstance(o, dict) and "heard" in o and on_listening:
+                    on_listening(False)
+                elif isinstance(o, dict) and "d" in o:
                     seen["length"] = int(float(o["d"]) * 1000)
                 elif isinstance(o, dict) and "b" in o:
                     progress(int(float(o["b"]) * 1000))
 
-            run([command, "-c", _FASTER_SCRIPT, audio, model, language or ""], heard)
+            run([command, "-c", _FASTER_SCRIPT, audio, model, language or "", "check" if check else ""], heard)
+            detection, doubt = parse_heard(rows)
+            if doubt:
+                raise LanguageDoubt(detection, doubt)
             found, lines = parse_faster(rows)
+            lines.heard = detection
         elif kind == "cpp":
             weights = _fetch_model(model, on_progress, cancelled)
             wav = os.path.join(work, "sound.wav")
@@ -3411,6 +3636,13 @@ class Main(QtWidgets.QMainWindow):
             plain = 'style="color:%s; text-decoration:none;"' % fg
             here_style = 'style="color:%s; text-decoration:underline; font-weight:600;"' % fg
             rows, i = [], 0
+            # The language heard, above the text: a wrong language shows as a translation, not as nonsense.
+            heard = heard_load(e["id"])
+            if heard.get("heard"):
+                used = heard.get("used", "")
+                line = (_("language heard: %s — chosen: %s", spoken_name(heard["heard"]), spoken_name(used))
+                        if used and used != heard["heard"] else _("language heard: %s", spoken_name(heard["heard"])))
+                rows.append('<div style="color:%s; margin-bottom:12px;">%s</div>' % (dim, html.escape(line)))
             for paragraph in transcript_paragraphs(said):
                 bits = []
                 for a, _b, t in paragraph:
@@ -3486,6 +3718,8 @@ class Main(QtWidgets.QMainWindow):
     def speech_label(self):
         job = self.speech or {}
         percent = job.get("percent", 0)
+        if job.get("listening"):
+            return _("listening for the spoken language…")
         if percent < 0:
             return _("fetching the model %d %%", -percent - 1)
         if job.get("kind") == "voices":
@@ -3510,17 +3744,55 @@ class Main(QtWidgets.QMainWindow):
         menu.exec_(QtGui.QCursor.pos())
         return chosen[0] if chosen else None
 
-    def last_language(self, fid):
-        """The language this channel was last written down in: a suggestion, never a choice
-        made on the listener's behalf."""
-        done = [e for e in self.store.episodes_of(fid) if e.get("transcript") and e.get("transcriptLanguage")]
-        return done[0]["transcriptLanguage"] if done else None
+    def choose_spoken(self):
+        """A short menu under the pointer, each row starting the writing down and naming its
+        language: found by listening first (the language of the last episode is no guide: a
+        French talk after an English one came back translated), then the others. Returns a
+        code, "" for the language found by listening, None when nothing was chosen."""
+        menu = QtWidgets.QMenu(self)
+        head = menu.addAction(_("the language spoken"))
+        head.setEnabled(False)
+        menu.addSeparator()
+        chosen = []
+        first = None
+        for code in ("",) + SPEECH_LANGUAGES:
+            action = menu.addAction(_("write down · language: %s", spoken_name(code)), lambda code=code: chosen.append(code))
+            first = first or action
+        menu.setActiveAction(first)
+        menu.exec_(QtGui.QCursor.pos(), first)
+        return chosen[0] if chosen else None
+
+    def ask_language(self, e, chosen, suggested):
+        """The language chosen is plainly not the one heard: asked before writing down, the
+        language heard first. Returns the language to write down in, or None."""
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(_("the language spoken"))
+        box = QtWidgets.QVBoxLayout(dialog)
+        title = QtWidgets.QLabel(e.get("title", ""))
+        title.setWordWrap(True)
+        box.addWidget(title)
+        text = QtWidgets.QLabel(_("language heard: %s · language chosen: %s", spoken_name(suggested), spoken_name(chosen)))
+        text.setWordWrap(True)
+        box.addWidget(text)
+        answer = []
+        for code in (suggested, chosen):
+            button = QtWidgets.QPushButton(_("write down · language: %s", spoken_name(code)))
+            button.setAutoDefault(code == suggested)
+            button.setDefault(code == suggested)
+            button.clicked.connect(lambda _c=False, code=code: (answer.append(code), dialog.accept()))
+            box.addWidget(button)
+        cancel = QtWidgets.QPushButton(_("cancel"))
+        cancel.setAutoDefault(False)
+        cancel.clicked.connect(dialog.reject)
+        box.addWidget(cancel)
+        dialog.exec_()
+        return answer[0] if answer else None
 
     def ask_write(self, e):
         if not find_whisper(self.cfg):
             self.say(_("writing down needs a Whisper program (faster-whisper, whisper.cpp or whisper): none was found"))
             return
-        language = self.choose_language(_("the language spoken"), SPEECH_LANGUAGES, self.last_language(e["feedId"]), auto=True)
+        language = self.choose_spoken()
         if language is not None:
             self.queue_speech(e, "write", language)
 
@@ -3568,8 +3840,20 @@ class Main(QtWidgets.QMainWindow):
 
         def job(progress):
             if kind == "write":
-                heard, lines = transcribe(find_whisper(cfg), e["localPath"], cfg.get("speech_quality", "normal"), language,
-                                          e.get("durationMs", 0), progress, lambda: self.cancel_speech)
+                # a language chosen by hand is checked against the one heard, unless the listener
+                # already answered the question for this episode
+                check = bool(language) and language not in heard_load(eid).get("kept", [])
+
+                def listening(on):
+                    self.speech["listening"] = on
+                    progress(0)
+                try:
+                    heard, lines = transcribe(find_whisper(cfg), e["localPath"], cfg.get("speech_quality", "normal"), language,
+                                              e.get("durationMs", 0), progress, lambda: self.cancel_speech,
+                                              check=check, on_listening=listening)
+                except LanguageDoubt as doubt:
+                    return doubt
+                heard_save(eid, heard=(lines.heard or {}).get("language", ""), used=heard)
                 voices = find_voices(cfg) if cfg.get("speech_voices", True) else None
                 if voices:
                     # Who speaks when, so that a paragraph ends where a voice does. If it cannot
@@ -3591,6 +3875,15 @@ class Main(QtWidgets.QMainWindow):
 
         def done(result, error):
             self.speech = None
+            if isinstance(result, LanguageDoubt):
+                # nothing written yet: the listener says which language, and it is not asked again
+                answer = self.ask_language(e, language, result.suggested)
+                if answer:
+                    heard_save(eid, kept=sorted(set(heard_load(eid).get("kept", [])) | {answer}))
+                    self.speech_queue.insert(0, (eid, kind, answer))
+                self.refresh_all_lists()
+                self.next_speech()
+                return
             if error:
                 if not self.cancel_speech:
                     self.say(str(error) if isinstance(error, Told) else
