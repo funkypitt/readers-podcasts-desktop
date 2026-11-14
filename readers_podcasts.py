@@ -16,14 +16,14 @@ from concurrent.futures import ThreadPoolExecutor
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from hashlib import sha1
+from hashlib import sha1, sha256
 from urllib.parse import quote, quote_plus, urljoin, urlparse
 
 import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.11.0"
+VERSION = "1.12.0"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -719,6 +719,67 @@ _SPOKEN_STRINGS = {
 for _code, _more in _SPOKEN_STRINGS.items():
     STRINGS[_code].update(_more)
 
+# What is passed over: an opening and a closing per podcast, the sponsors of a video, chapters.
+_SKIP_STRINGS = {
+ "fr": {"next chapter": "chapitre suivant", "go back": "revenir",
+        "sponsor skipped": "sponsor sauté", "self-promotion skipped": "autopromotion sautée",
+        "reminder to subscribe skipped": "rappel de s'abonner sauté",
+        "skip the start and the end…": "sauter le début et la fin…",
+        "seconds skipped at the start": "secondes sautées au début",
+        "seconds skipped at the end": "secondes sautées à la fin",
+        "For an introduction or a closing that is the same in every episode. 0 skips nothing.":
+            "Pour une introduction ou une conclusion identique dans chaque épisode. 0 ne saute rien.",
+        "skip sponsors in YouTube videos": "sauter les sponsors des vidéos YouTube",
+        "SponsorBlock, a list kept by its users, is asked where they are. Only part of a fingerprint of the video's address is sent.":
+            "SponsorBlock, une liste tenue par ses utilisateurs, est consulté pour savoir où ils sont. Seule une partie d'une empreinte de l'adresse de la vidéo est envoyée."},
+ "de": {"next chapter": "nächstes Kapitel", "go back": "zurück",
+        "sponsor skipped": "Sponsor übersprungen", "self-promotion skipped": "Eigenwerbung übersprungen",
+        "reminder to subscribe skipped": "Abo-Aufruf übersprungen",
+        "skip the start and the end…": "Anfang und Ende überspringen…",
+        "seconds skipped at the start": "am Anfang übersprungene Sekunden",
+        "seconds skipped at the end": "am Ende übersprungene Sekunden",
+        "For an introduction or a closing that is the same in every episode. 0 skips nothing.":
+            "Für eine Einleitung oder einen Schluss, der in jeder Folge gleich ist. 0 überspringt nichts.",
+        "skip sponsors in YouTube videos": "Sponsoren in YouTube-Videos überspringen",
+        "SponsorBlock, a list kept by its users, is asked where they are. Only part of a fingerprint of the video's address is sent.":
+            "SponsorBlock, eine von seinen Nutzern geführte Liste, wird gefragt, wo sie sind. Gesendet wird nur ein Teil eines Fingerabdrucks der Adresse des Videos."},
+ "es": {"next chapter": "capítulo siguiente", "go back": "volver",
+        "sponsor skipped": "patrocinio saltado", "self-promotion skipped": "autopromoción saltada",
+        "reminder to subscribe skipped": "recordatorio de suscribirse saltado",
+        "skip the start and the end…": "saltar el principio y el final…",
+        "seconds skipped at the start": "segundos saltados al principio",
+        "seconds skipped at the end": "segundos saltados al final",
+        "For an introduction or a closing that is the same in every episode. 0 skips nothing.":
+            "Para una introducción o un cierre que se repite en cada episodio. 0 no salta nada.",
+        "skip sponsors in YouTube videos": "saltar los patrocinios de los vídeos de YouTube",
+        "SponsorBlock, a list kept by its users, is asked where they are. Only part of a fingerprint of the video's address is sent.":
+            "Se consulta SponsorBlock, una lista que mantienen sus usuarios, para saber dónde están. Solo se envía una parte de una huella de la dirección del vídeo."},
+ "pt": {"next chapter": "capítulo seguinte", "go back": "voltar",
+        "sponsor skipped": "patrocínio saltado", "self-promotion skipped": "autopromoção saltada",
+        "reminder to subscribe skipped": "pedido de subscrição saltado",
+        "skip the start and the end…": "saltar o início e o fim…",
+        "seconds skipped at the start": "segundos saltados no início",
+        "seconds skipped at the end": "segundos saltados no fim",
+        "For an introduction or a closing that is the same in every episode. 0 skips nothing.":
+            "Para uma introdução ou um fecho que se repete em cada episódio. 0 não salta nada.",
+        "skip sponsors in YouTube videos": "saltar os patrocínios dos vídeos do YouTube",
+        "SponsorBlock, a list kept by its users, is asked where they are. Only part of a fingerprint of the video's address is sent.":
+            "O SponsorBlock, uma lista mantida pelos seus utilizadores, é consultado para saber onde estão. Só é enviada uma parte de uma impressão digital do endereço do vídeo."},
+ "ru": {"next chapter": "следующая глава", "go back": "вернуться",
+        "sponsor skipped": "реклама спонсора пропущена", "self-promotion skipped": "самореклама пропущена",
+        "reminder to subscribe skipped": "призыв подписаться пропущен",
+        "skip the start and the end…": "пропускать начало и конец…",
+        "seconds skipped at the start": "секунд пропускать в начале",
+        "seconds skipped at the end": "секунд пропускать в конце",
+        "For an introduction or a closing that is the same in every episode. 0 skips nothing.":
+            "Для вступления или концовки, одинаковых в каждом выпуске. 0 — ничего не пропускать.",
+        "skip sponsors in YouTube videos": "пропускать спонсоров в видео YouTube",
+        "SponsorBlock, a list kept by its users, is asked where they are. Only part of a fingerprint of the video's address is sent.":
+            "Где они, спрашивается у SponsorBlock — списка, который ведут его пользователи. Отправляется только часть отпечатка адреса видео."},
+}
+for _code, _more in _SKIP_STRINGS.items():
+    STRINGS[_code].update(_more)
+
 
 def _lang():
     for name in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
@@ -1156,7 +1217,9 @@ def backup_export(settings, feeds, episodes):
         "app": APP, "version": 1, "exported": int(datetime.now().timestamp() * 1000),
         "settings": settings,
         "feeds": [{"url": f["url"], "title": f.get("title", ""), "kind": f.get("kind", "RSS"),
-                   "autoDownload": f.get("autoDownload", False), "keepCount": f.get("keepCount", 50)}
+                   "autoDownload": f.get("autoDownload", False), "keepCount": f.get("keepCount", 50),
+                   # seconds, written only when set — as the phone writes them
+                   **{k: v for k, v in zip(("skipStart", "skipEnd"), skip_seconds(f)) if v > 0}}
                   for f in feeds],
         "episodes": [{"id": e["id"], "feed": e["feedId"], "title": e["title"],
                       "positionMs": e.get("positionMs", 0), "state": e.get("state", "NEW"),
@@ -1305,6 +1368,8 @@ class Store:
                     new.update({k: old[k] for k in ("transcript", "transcriptLanguage", "translation", "sent") if k in old})
                     if not new["durationMs"]:
                         new["durationMs"] = old["durationMs"]
+                    if "skipSegments" in old:
+                        new["skipSegments"] = old["skipSegments"]
                 merged.append(new)
             fresh_ids = {e["id"] for e in merged}
             # A feed that lists only its last ten items must not delete what one is listening to.
@@ -2715,6 +2780,116 @@ def older_episode(fid, video_id, title, duration_ms):
     }
 
 
+# ------------------------------------------------------------------------------------------
+# What is passed over: the same opening and closing in every episode of a podcast (seconds set
+# per podcast), and in a YouTube video the parts SponsorBlock's users marked as advertising.
+# ------------------------------------------------------------------------------------------
+
+SPONSORBLOCK = "https://sponsor.ajay.app/api/skipSegments/"
+SPONSOR_CATEGORIES = ("sponsor", "selfpromo", "interaction")
+SPONSOR_SKIPPED = {"sponsor": "sponsor skipped", "selfpromo": "self-promotion skipped",
+                   "interaction": "reminder to subscribe skipped"}
+SKIP_SHOWN_MS = 6000         # how long « sponsor skipped · go back » stays in the player
+SKIP_GAP_MS = 3000           # a step longer than this between two positions is a seek, not playing
+BEGINNING_MS = 1000          # under this an episode is taken to start from its beginning (the phone's Skips)
+
+
+def sponsor_url(video_id):
+    """The address asked: only the first four characters of the SHA-256 of the video's id leave
+    the computer — SponsorBlock answers for every video sharing them, and the match is made here."""
+    prefix = sha256(video_id.encode("utf-8")).hexdigest()[:4]
+    categories = json.dumps(list(SPONSOR_CATEGORIES), separators=(",", ":"))
+    return SPONSORBLOCK + prefix + "?categories=" + quote(categories, safe="")
+
+
+def parse_sponsor(data, video_id):
+    """The segments to skip in this one video, in order: [{"start", "end" (ms), "category", "uuid"}],
+    the phone's SkipSegment as it stores it (skipSegments in feeds/<id>.json)."""
+    found = []
+    for video in data if isinstance(data, list) else []:
+        if not isinstance(video, dict) or video.get("videoID") != video_id:
+            continue
+        for s in video.get("segments") or []:
+            try:
+                start, end = (float(x) for x in s.get("segment") or ())
+            except (TypeError, ValueError):
+                continue
+            if s.get("actionType", "skip") != "skip" or s.get("category") not in SPONSOR_CATEGORIES:
+                continue
+            if end > start >= 0:
+                found.append({"start": int(start * 1000), "end": int(end * 1000),
+                              "category": s["category"], "uuid": s.get("UUID") or ""})
+    return sorted(found, key=lambda s: s["start"])
+
+
+def sponsor_lookup(video_id, get=None):
+    """The segments of a video, [] when SponsorBlock knows none (it answers 404). Anything else
+    that goes wrong raises: nothing is kept, and the next listening asks again."""
+    r = (get or requests.get)(sponsor_url(video_id), headers={"User-Agent": AGENT}, timeout=15)
+    if r.status_code == 404:
+        return []
+    r.raise_for_status()
+    return parse_sponsor(r.json(), video_id)
+
+
+def wants_sponsor_lookup(episode, enabled):
+    """Asked once per video, and only while the answer is not already kept with the episode."""
+    return bool(enabled) and "skipSegments" not in episode and bool(
+        is_youtube_episode(episode) and youtube_video_id(episode.get("mediaUrl", "")))
+
+
+def skip_seconds(feed):
+    """(seconds skipped at the start, at the end) of a podcast; 0 skips nothing."""
+    def seconds(key):
+        try:
+            return max(0, int((feed or {}).get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+    return seconds("skipStart"), seconds("skipEnd")
+
+
+def end_ms(duration_ms, skip_end_s, skip_start_s=0):
+    """Where the episode is taken as heard: its length, or that many seconds before it. A
+    closing longer than what is left after the opening is ignored, or nothing would play."""
+    if duration_ms <= 0 or skip_end_s <= 0:
+        return duration_ms
+    cut = duration_ms - skip_end_s * 1000
+    return cut if cut > skip_start_s * 1000 else duration_ms
+
+
+def opening_position(saved_ms, duration_ms, skip_start_s, skip_end_s=0):
+    """Where playing begins: the place left off; the start once heard to the end; and at the
+    start, past the opening — a place left beyond the opening stays where it is."""
+    start = max(0, saved_ms or 0)
+    if duration_ms > 0 and start > end_ms(duration_ms, skip_end_s, skip_start_s) - 3000:
+        start = 0
+    if start < BEGINNING_MS and skip_start_s > 0 and (duration_ms <= 0 or skip_start_s * 1000 < duration_ms):
+        start = skip_start_s * 1000
+    return start
+
+
+def skip_action(previous_ms, now_ms, segments, spared=(), end=0):
+    """What playing from `previous_ms` to `now_ms` calls for: ("skip", index) when the sound has
+    just run into a sponsor, ("end", None) when it has run into the closing skipped (`end`, from
+    end_ms; 0 or the length when nothing is skipped), else None. Only playing counts: a jump —
+    by hand into a segment or into the closing, or over a start — is never followed by a skip,
+    nor is a segment the listener went back to (`spared`, its indexes)."""
+    if previous_ms is None or now_ms <= previous_ms or now_ms - previous_ms > SKIP_GAP_MS:
+        return None
+    for i, s in enumerate(segments or ()):
+        if i not in spared and previous_ms < s["start"] <= now_ms < s["end"]:
+            # A sponsor that runs into the closing: that is the end of the episode.
+            return ("end", None) if end and s["end"] >= end else ("skip", i)
+    if end and previous_ms < end <= now_ms:
+        return ("end", None)
+    return None
+
+
+def next_chapter(chapters, position_ms):
+    """The time of the chapter after the one playing, or None at the last one."""
+    return next((ms for ms, _title in chapters if ms > position_ms + 1000), None)
+
+
 class Worker(QtCore.QObject):
     """One job on a thread of its own, reporting back to the window."""
     done = QtCore.pyqtSignal(object, object)     # result, error
@@ -2924,7 +3099,8 @@ def settings_for_backup(cfg):
             "font": {"sans": "SANS", "serif": "SERIF", "mono": "MONO"}.get(cfg.get("font", "sans"), "SANS"),
             "auto_refresh": bool(cfg.get("auto_refresh", True)),
             "delete_when_played": bool(cfg.get("delete_when_played", False)),
-            "speed": float(cfg.get("speed", 1.0))}
+            "speed": float(cfg.get("speed", 1.0)),
+            "skip_sponsors": bool(cfg.get("skip_sponsors", True))}
 
 
 def settings_from_backup(cfg, settings):
@@ -2933,7 +3109,7 @@ def settings_from_backup(cfg, settings):
         set_theme(cfg, settings["theme"] if settings["theme"] in THEMES else "DARK")
     if "font" in settings:
         cfg["font"] = {"SANS": "sans", "SERIF": "serif", "MONO": "mono"}.get(settings["font"], "sans")
-    for key in ("auto_refresh", "delete_when_played"):
+    for key in ("auto_refresh", "delete_when_played", "skip_sponsors"):
         if key in settings:
             cfg[key] = bool(settings[key])
     # The 0.1 names are mapped rather than dropped, so a file written then still opens something.
@@ -3298,6 +3474,14 @@ class SettingsDialog(QtWidgets.QDialog):
         self.hide_short.setChecked(bool(cfg.get("hide_short", False)))
         self.hide_short.setToolTip(_("trailers and snippets; favourites and downloads stay"))
         form.addRow(_("hide episodes under 10 minutes"), self.hide_short)
+        # The sponsors of a video, found by asking SponsorBlock: said beside the choice, since it is a request out.
+        self.sponsorblock = QtWidgets.QCheckBox()
+        self.sponsorblock.setChecked(bool(cfg.get("skip_sponsors", True)))
+        form.addRow(_("skip sponsors in YouTube videos"), self.sponsorblock)
+        sponsor_hint = QtWidgets.QLabel(_("SponsorBlock, a list kept by its users, is asked where they are. Only part of a fingerprint of the video's address is sent."))
+        sponsor_hint.setObjectName("dim")
+        sponsor_hint.setWordWrap(True)
+        form.addRow(sponsor_hint)
         # What was said: how carefully it is written down, and which of Ollama's models translates.
         self.quality = QtWidgets.QComboBox()
         self.quality.addItem(_("ordinary"), "normal")
@@ -3344,14 +3528,15 @@ class SettingsDialog(QtWidgets.QDialog):
         # the form gives it two lines and cuts the rest.
         self.adjustSize()
         margins = form.contentsMargins()
-        hint.setMinimumHeight(hint.heightForWidth(max(200, self.width() - margins.left() - margins.right())))
+        for label in (hint, sponsor_hint):
+            label.setMinimumHeight(label.heightForWidth(max(200, self.width() - margins.left() - margins.right())))
 
     def values(self):
         return {"theme": self.colours.currentData(), "dark": theme_is_dark(self.colours.currentData()),
                 "font": self.font.currentData(),
                 "font_size": self.size.value(), "auto_refresh": self.auto.isChecked(),
                 "delete_when_played": self.delete_played.isChecked(),
-                "hide_short": self.hide_short.isChecked(),
+                "hide_short": self.hide_short.isChecked(), "skip_sponsors": self.sponsorblock.isChecked(),
                 "default_view": self.opens.currentData(),
                 "speech_quality": self.quality.currentData(), "speech_voices": self.voices.isChecked(),
                 "translate_model": self.model.currentData(),
@@ -3552,9 +3737,23 @@ class Main(QtWidgets.QMainWindow):
         self.play_row.clicked.connect(self.toggle)
         self.fwd_row = Clickable("+10 s", "ctrl")
         self.fwd_row.clicked.connect(lambda: self.seek_by(10000))
-        for w in (self.back_row, self.play_row, self.fwd_row):
+        self.fwd30_row = Clickable("+30 s", "ctrl")
+        self.fwd30_row.clicked.connect(lambda: self.seek_by(30000))
+        # Only for an episode whose notes list chapters.
+        self.chapter_row = Clickable(_("next chapter"), "ctrl")
+        self.chapter_row.clicked.connect(self.to_next_chapter)
+        self.chapter_row.setVisible(False)
+        for w in (self.back_row, self.play_row, self.fwd_row, self.fwd30_row, self.chapter_row):
             controls.addWidget(w)
         controls.addStretch(1)
+        # A sponsor just passed over, said for a few seconds with the way back to it.
+        self.skipped_label = QtWidgets.QLabel("")
+        self.skipped_label.setObjectName("dim")
+        self.back_to_row = Clickable(_("go back"), "ctrl")
+        self.back_to_row.clicked.connect(self.back_to_skipped)
+        for w in (self.skipped_label, self.back_to_row):
+            w.setVisible(False)
+            controls.addWidget(w)
         self.speed_row = Clickable("", "ctrl")
         self.speed_row.clicked.connect(self.next_speed)
         controls.addWidget(self.speed_row)
@@ -3564,6 +3763,14 @@ class Main(QtWidgets.QMainWindow):
     def _player(self):
         self.current = None
         self.player = None
+        self.last_ms = None          # the position seen the tick before: a skip needs the sound to play into a segment
+        self.spared = set()          # segments gone back to: not skipped again during this listening
+        self.skipped = None          # the index of the segment just passed over, while « go back » shows
+        self.sponsors_asked = set()  # videos whose segments are being asked for
+        self.skip_timer = QtCore.QTimer(self)
+        self.skip_timer.setSingleShot(True)
+        self.skip_timer.setInterval(SKIP_SHOWN_MS)
+        self.skip_timer.timeout.connect(lambda: self.show_skipped(None))
         if HAVE_AUDIO:
             self.player = QtMultimedia.QMediaPlayer(self)
             self.player.setNotifyInterval(250)
@@ -4006,7 +4213,7 @@ class Main(QtWidgets.QMainWindow):
         elif target.startswith(("chap:", "t:")):
             ms = int(target.split(":", 1)[1])
             if self.current and self.current["id"] == e["id"] and self.player:
-                self.player.setPosition(ms)
+                self.jump(ms)
                 if not self.is_playing():
                     self.player.play()
             else:
@@ -4247,9 +4454,48 @@ class Main(QtWidgets.QMainWindow):
         auto.setCheckable(True)
         auto.setChecked(bool(feed.get("autoDownload")))
         auto.triggered.connect(lambda on: self.store.update_feed(fid, autoDownload=bool(on)))
+        start, end = skip_seconds(feed)
+        skip = _("skip the start and the end…")
+        if start or end:
+            skip += "   %d s · %d s" % (start, end)
+        menu.addAction(skip, lambda: self.ask_skip(fid))
         menu.addSeparator()
         menu.addAction(_("unsubscribe"), lambda: self.unsubscribe(fid))
         menu.exec_(self.feeds_list.viewport().mapToGlobal(point))
+
+    def ask_skip(self, fid):
+        """The seconds passed over at the start and at the end of every episode of a podcast."""
+        feed = self.store.feed(fid)
+        if not feed:
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(feed.get("title") or _("skip the start and the end…"))
+        form = QtWidgets.QFormLayout(dialog)
+        hint = QtWidgets.QLabel(_("For an introduction or a closing that is the same in every episode. 0 skips nothing."))
+        hint.setObjectName("dim")
+        hint.setWordWrap(True)
+        form.addRow(hint)
+        boxes = []
+        for label, value in zip((_("seconds skipped at the start"), _("seconds skipped at the end")), skip_seconds(feed)):
+            box = QtWidgets.QSpinBox()
+            box.setRange(0, 900)
+            box.setValue(value)
+            form.addRow(label, box)
+            boxes.append(box)
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
+        buttons.button(QtWidgets.QDialogButtonBox.Ok).setText(_("ok"))
+        buttons.button(QtWidgets.QDialogButtonBox.Cancel).setText(_("cancel"))
+        buttons.button(QtWidgets.QDialogButtonBox.Cancel).setAutoDefault(False)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+        dialog.adjustSize()
+        margins = form.contentsMargins()
+        hint.setMinimumHeight(hint.heightForWidth(max(200, dialog.width() - margins.left() - margins.right())))
+        self._skip_dialog = dialog          # for a test to reach it while it is open
+        if dialog.exec_() == QtWidgets.QDialog.Accepted:
+            self.store.update_feed(fid, skipStart=boxes[0].value(), skipEnd=boxes[1].value())
+            self.update_player()
 
     def episode_menu(self, point):
         item = self.episodes_list.itemAt(point)
@@ -4421,6 +4667,8 @@ class Main(QtWidgets.QMainWindow):
         if episode["id"] == self.downloading or episode["id"] in self.download_queue:
             return
         self.download_queue.append(episode["id"])
+        if not quiet:
+            self.ask_sponsors(episode)
         self.refresh_episodes_list()
         self.next_download()
 
@@ -4604,8 +4852,9 @@ class Main(QtWidgets.QMainWindow):
         for url, _title, f in rows:
             fid = feed_id(url)
             if self.store.feed(fid):
+                start, end = skip_seconds(f)
                 self.store.update_feed(fid, autoDownload=bool(f.get("autoDownload")),
-                                       keepCount=int(f.get("keepCount", 50)))
+                                       keepCount=int(f.get("keepCount", 50)), skipStart=start, skipEnd=end)
 
     def apply_states(self, states):
         """The newer of the two sides wins, so importing an older file never undoes listening
@@ -4647,6 +4896,7 @@ class Main(QtWidgets.QMainWindow):
         if self.current and self.current["id"] == episode["id"]:
             self.toggle()
             return
+        self.ask_sponsors(episode)
         if is_youtube_episode(episode) and not episode.get("localPath"):
             # A page, not a file: nothing can play until yt-dlp has been through it. Asking for
             # it to play fetches it, and the sound follows by itself — one asked to listen.
@@ -4656,15 +4906,18 @@ class Main(QtWidgets.QMainWindow):
             return
         self.save_position()
         self.current = episode
+        self.spared = set()
+        self.show_skipped(None)
         source = (QtCore.QUrl.fromLocalFile(episode["localPath"]) if episode.get("localPath")
                   else QtCore.QUrl(episode["mediaUrl"]))
         self.player.setMedia(QtMultimedia.QMediaContent(source))
         self.player.setPlaybackRate(float(self.cfg.get("speed", 1.0)))
-        start = episode.get("positionMs", 0)
-        if (episode.get("durationMs") or 0) > 0 and start > episode["durationMs"] - 3000:
-            start = 0
+        skip_start, skip_end = skip_seconds(self.store.feed(episode["feedId"]))
+        start = opening_position(episode.get("positionMs", 0), episode.get("durationMs") or 0, skip_start, skip_end)
         if start:
             self.player.setPosition(start)
+        # One before the start: a sponsor that opens the video is played into, and so skipped.
+        self.last_ms = start - 1
         self.player.play()
         self.store.update_episode(episode["id"], lastPlayed=int(datetime.now().timestamp() * 1000),
                                   state="STARTED" if episode.get("state") == "NEW" else episode.get("state", "NEW"))
@@ -4688,13 +4941,95 @@ class Main(QtWidgets.QMainWindow):
         self.current = None
         self.update_player()
 
+    def jump(self, ms):
+        """A move made by the app or by hand, not by playing: what it lands in is not skipped."""
+        self.player.setPosition(ms)
+        self.last_ms = ms
+
     def seek_by(self, ms):
         if self.player and self.current:
-            self.player.setPosition(max(0, self.player.position() + ms))
+            self.jump(max(0, self.player.position() + ms))
 
     def seek_fraction(self, fraction):
         if self.player and self.current and self.player.duration() > 0:
-            self.player.setPosition(int(self.player.duration() * fraction))
+            self.jump(int(self.player.duration() * fraction))
+
+    def current_chapters(self):
+        if not self.current:
+            return []
+        duration = (self.player.duration() if self.player else 0) or self.current.get("durationMs") or 0
+        key = (self.current["id"], duration)
+        if getattr(self, "_chapters", (None, []))[0] != key:
+            self._chapters = (key, parse_chapters(self.current.get("description", ""), duration))
+        return self._chapters[1]
+
+    def to_next_chapter(self):
+        if not (self.player and self.current):
+            return
+        ms = next_chapter(self.current_chapters(), self.player.position())
+        if ms is not None:
+            self.jump(ms)
+
+    def ask_sponsors(self, e):
+        """Where the sponsors of a video are, asked of SponsorBlock once the listener wants that
+        video, and kept with it. A failure says nothing and leaves it to be asked next time."""
+        if not wants_sponsor_lookup(e, self.cfg.get("skip_sponsors", True)) or e["id"] in self.sponsors_asked:
+            return
+        eid, video = e["id"], youtube_video_id(e["mediaUrl"])
+        self.sponsors_asked.add(eid)
+
+        def done(found, error):
+            self.sponsors_asked.discard(eid)
+            if error is None and found is not None:
+                self.store.update_episode(eid, skipSegments=found)
+            elif error:
+                print("SponsorBlock:", error, file=sys.stderr)
+
+        self.run(lambda _progress: sponsor_lookup(video), done)
+
+    def segments(self):
+        if not self.current or not self.cfg.get("skip_sponsors", True):
+            return []
+        return (self.store.episode(self.current["id"]) or self.current).get("skipSegments") or []
+
+    def pass_over(self, ms):
+        """While playing: the closing of the podcast ends the episode, a sponsor is jumped past."""
+        if not (self.player and self.current):
+            return
+        previous, self.last_ms = self.last_ms, ms
+        if not self.is_playing():
+            return
+        skip_start, skip_end = skip_seconds(self.store.feed(self.current["feedId"]))
+        duration = self.player.duration()
+        end = end_ms(duration, skip_end, skip_start)
+        segments = self.segments()
+        action = skip_action(previous, ms, segments, self.spared, end if 0 < end < duration else 0)
+        if action and action[0] == "end":
+            self.finish_episode()
+        elif action:
+            self.jump(segments[action[1]]["end"])
+            self.show_skipped(action[1])
+
+    def show_skipped(self, i):
+        """« sponsor skipped · go back » for a few seconds, or nothing (i None)."""
+        segments = self.segments() if i is not None else []
+        self.skipped = i if i is not None and i < len(segments) else None
+        on = self.skipped is not None
+        if on:
+            self.skipped_label.setText(_(SPONSOR_SKIPPED.get(segments[i]["category"], "sponsor skipped")) + "  ·")
+            self.skip_timer.start()
+        else:
+            self.skip_timer.stop()
+        self.skipped_label.setVisible(on)
+        self.back_to_row.setVisible(on)
+
+    def back_to_skipped(self):
+        segments = self.segments()
+        if self.skipped is None or self.skipped >= len(segments) or not self.player:
+            return
+        self.spared.add(self.skipped)
+        self.jump(segments[self.skipped]["start"])
+        self.show_skipped(None)
 
     def next_speed(self):
         speeds = [0.8, 1.0, 1.25, 1.5, 1.75, 2.0]
@@ -4707,21 +5042,28 @@ class Main(QtWidgets.QMainWindow):
             self.player.setPlaybackRate(speed)
         self.update_player()
 
-    def on_position(self, _ms):
+    def on_position(self, ms):
+        self.pass_over(ms)
         self.update_player()
         self.follow_text()
 
     def on_media_status(self, status):
         if not self.player or status != QtMultimedia.QMediaPlayer.EndOfMedia or not self.current:
             return
+        self.finish_episode()
+
+    def finish_episode(self):
         # An episode heard through: marked, put back to its beginning, and its file let go if
         # that is the setting. A phone or a desk that fills up with what was already heard is
         # something one stops trusting.
         eid = self.current["id"]
+        self.current = None
+        self.show_skipped(None)
+        if self.player.state() != QtMultimedia.QMediaPlayer.StoppedState:
+            self.player.stop()        # the closing skipped: the sound would go on otherwise
         self.store.update_episode(eid, state="PLAYED", positionMs=0)
         if self.cfg.get("delete_when_played", False) and auto_deletable(self.store.episode(eid) or {}):
             self.store.delete_file(eid)
-        self.current = None
         self.refresh_all_lists()
         self.update_player()
 
@@ -4750,6 +5092,7 @@ class Main(QtWidgets.QMainWindow):
             self.set_sounding(False)
             self.keep_waiting()
             self.line.set_fraction(0)
+            self.chapter_row.setVisible(False)
             return
         position = self.player.position() if self.player else 0
         duration = self.player.duration() if self.player else 0
@@ -4763,6 +5106,7 @@ class Main(QtWidgets.QMainWindow):
         self.set_sounding(bool(playing))
         self.keep_waiting()
         self.line.set_fraction(position / duration if duration else 0)
+        self.chapter_row.setVisible(bool(self.current_chapters()))
 
     def set_sounding(self, on):
         """With a colour theme the play card takes the accent while the sound plays; the style
