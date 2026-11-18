@@ -21,7 +21,7 @@ Section: sound
 Priority: optional
 Architecture: all
 Depends: python3 (>= 3.8), python3-pyqt5, python3-pyqt5.qtmultimedia, libqt5multimedia5-plugins, python3-requests, gstreamer1.0-plugins-good
-Recommends: gstreamer1.0-libav, yt-dlp, ffmpeg
+Recommends: gstreamer1.0-libav, ffmpeg
 Maintainer: funkypitt <pierregallaz@gmail.com>
 Homepage: https://github.com/funkypitt/readers-podcasts-desktop
 Description: Black-and-white, text-only podcast player
@@ -29,8 +29,8 @@ Description: Black-and-white, text-only podcast player
  is about on the right: its notes with their links alive and its chapters one
  click from the sound. OPML in and out, a settings file that carries where
  each episode was left, in step with the Reader's Podcasts Android app.
- YouTube channels are followed as feeds; their audio is fetched by yt-dlp
- when it is installed.
+ YouTube channels are followed as feeds; their audio is fetched by yt-dlp,
+ which the app fetches once and keeps up to date by itself.
  What is said in an episode can be written down by a Whisper program
  (faster-whisper, whisper.cpp or whisper) and translated by Ollama, when
  they are installed; the text is read against the sound.

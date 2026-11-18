@@ -23,7 +23,7 @@ import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 APP = "readers-podcasts"
-VERSION = "1.12.0"
+VERSION = "1.12.1"
 AGENT = "Readers-Podcasts/%s (+https://gallaz.ch/eink)" % VERSION
 
 # Playback is the one thing this app cannot do by itself. QtMultimedia ships in its own package
@@ -115,6 +115,9 @@ STRINGS = {
   "the older episodes could not be loaded: %s": "les épisodes plus anciens n'ont pas pu être chargés : %s",
   "this channel has no page to read": "cette chaîne n'a pas de page à lire",
   "yt-dlp brought nothing back": "yt-dlp n'a rien rapporté",
+  "fetching yt-dlp (once)…": "téléchargement de yt-dlp (une fois)…",
+  "updating yt-dlp…": "mise à jour de yt-dlp…",
+  "yt-dlp could not be fetched (no network?): %s": "yt-dlp n'a pas pu être téléchargé (pas de réseau ?) : %s",
   "the words of this video are being fetched…": "les mots de cette vidéo arrivent…",
   "add a podcast": "ajouter un podcast",
   "a name, or a feed's address": "un nom, ou l'adresse d'un flux",
@@ -129,7 +132,6 @@ STRINGS = {
   "episodes": "épisodes",
   "favourites": "favoris",
   "downloaded": "téléchargés",
-  "YouTube needs yt-dlp, which is not installed": "YouTube demande yt-dlp, qui n'est pas installé",
   "no channel was found at that address": "aucune chaîne trouvée à cette adresse",
   "the audio is fetched first; it will play by itself": "l'audio est récupéré d'abord ; la lecture suivra",
   "listen": "écouter",
@@ -238,6 +240,9 @@ STRINGS = {
   "the older episodes could not be loaded: %s": "die älteren Folgen konnten nicht geladen werden: %s",
   "this channel has no page to read": "dieser Kanal hat keine Seite zum Lesen",
   "yt-dlp brought nothing back": "yt-dlp hat nichts zurückgebracht",
+  "fetching yt-dlp (once)…": "yt-dlp wird geladen (einmalig)…",
+  "updating yt-dlp…": "yt-dlp wird aktualisiert…",
+  "yt-dlp could not be fetched (no network?): %s": "yt-dlp konnte nicht geladen werden (kein Netz?): %s",
   "the words of this video are being fetched…": "der Text zu diesem Video wird geholt…",
   "add a podcast": "Podcast hinzufügen",
   "a name, or a feed's address": "ein Name oder die Adresse eines Feeds",
@@ -252,7 +257,6 @@ STRINGS = {
   "episodes": "Folgen",
   "favourites": "Favoriten",
   "downloaded": "heruntergeladen",
-  "YouTube needs yt-dlp, which is not installed": "für YouTube wird yt-dlp gebraucht, das nicht installiert ist",
   "no channel was found at that address": "unter dieser Adresse wurde kein Kanal gefunden",
   "the audio is fetched first; it will play by itself": "der Ton wird zuerst geholt; er spielt dann von selbst",
   "listen": "anhören",
@@ -361,6 +365,9 @@ STRINGS = {
   "the older episodes could not be loaded: %s": "no se pudieron cargar los episodios más antiguos: %s",
   "this channel has no page to read": "este canal no tiene página que leer",
   "yt-dlp brought nothing back": "yt-dlp no devolvió nada",
+  "fetching yt-dlp (once)…": "descargando yt-dlp (una vez)…",
+  "updating yt-dlp…": "actualizando yt-dlp…",
+  "yt-dlp could not be fetched (no network?): %s": "no se pudo descargar yt-dlp (¿sin red?): %s",
   "the words of this video are being fetched…": "se está buscando el texto de este vídeo…",
   "add a podcast": "añadir un podcast",
   "a name, or a feed's address": "un nombre o la dirección de una fuente",
@@ -375,7 +382,6 @@ STRINGS = {
   "episodes": "episodios",
   "favourites": "favoritos",
   "downloaded": "descargados",
-  "YouTube needs yt-dlp, which is not installed": "YouTube necesita yt-dlp, que no está instalado",
   "no channel was found at that address": "no se encontró ningún canal en esa dirección",
   "the audio is fetched first; it will play by itself": "primero se obtiene el audio; sonará solo",
   "listen": "escuchar",
@@ -484,6 +490,9 @@ STRINGS = {
   "the older episodes could not be loaded: %s": "não foi possível carregar os episódios mais antigos: %s",
   "this channel has no page to read": "este canal não tem página para ler",
   "yt-dlp brought nothing back": "o yt-dlp não trouxe nada",
+  "fetching yt-dlp (once)…": "a transferir o yt-dlp (uma vez)…",
+  "updating yt-dlp…": "a atualizar o yt-dlp…",
+  "yt-dlp could not be fetched (no network?): %s": "não foi possível transferir o yt-dlp (sem rede?): %s",
   "the words of this video are being fetched…": "o texto deste vídeo está a chegar…",
   "add a podcast": "adicionar um podcast",
   "a name, or a feed's address": "um nome ou o endereço de uma fonte",
@@ -498,7 +507,6 @@ STRINGS = {
   "episodes": "episódios",
   "favourites": "favoritos",
   "downloaded": "transferidos",
-  "YouTube needs yt-dlp, which is not installed": "o YouTube precisa do yt-dlp, que não está instalado",
   "no channel was found at that address": "nenhum canal encontrado nesse endereço",
   "the audio is fetched first; it will play by itself": "o áudio é obtido primeiro; tocará sozinho",
   "listen": "ouvir",
@@ -607,6 +615,9 @@ STRINGS = {
   "the older episodes could not be loaded: %s": "не удалось загрузить более старые выпуски: %s",
   "this channel has no page to read": "у этого канала нет страницы для чтения",
   "yt-dlp brought nothing back": "yt-dlp ничего не вернул",
+  "fetching yt-dlp (once)…": "загрузка yt-dlp (один раз)…",
+  "updating yt-dlp…": "обновление yt-dlp…",
+  "yt-dlp could not be fetched (no network?): %s": "не удалось загрузить yt-dlp (нет сети?): %s",
   "the words of this video are being fetched…": "текст к этому видео загружается…",
   "add a podcast": "добавить подкаст",
   "a name, or a feed's address": "название или адрес ленты",
@@ -621,7 +632,6 @@ STRINGS = {
   "episodes": "выпуски",
   "favourites": "избранное",
   "downloaded": "загруженные",
-  "YouTube needs yt-dlp, which is not installed": "для YouTube нужен yt-dlp, а он не установлен",
   "no channel was found at that address": "по этому адресу канал не найден",
   "the audio is fetched first; it will play by itself": "сначала загружается звук; потом заиграет сам",
   "listen": "слушать",
@@ -2606,22 +2616,134 @@ def is_youtube_episode(episode):
     return looks_like_youtube(episode.get("mediaUrl", ""))
 
 
-def ytdlp_path():
-    import shutil
-    return shutil.which("yt-dlp")
-
-
 class Told(RuntimeError):
     """An error already worded for the user, in the interface's language: shown as it is."""
 
 
+# yt-dlp: the app keeps its own copy, the standalone build of yt-dlp's releases, fetched once
+# into the data folder (35 MB) the first time YouTube is asked for something, and lets it update
+# itself at most once a day: YouTube changes every few weeks and yt-dlp follows within days. The
+# system's yt-dlp, which nobody keeps up to date, is only what is left when the fetch fails.
+
+BIN_DIR = os.path.join(DATA_DIR, "bin")
+YTDLP_RELEASES = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/"
+YTDLP_CHECK_EVERY = 24 * 3600
+_ytdlp_lock = threading.Lock()
+
+
+def _ytdlp_asset():
+    """The yt-dlp release file for this machine (a standalone build that updates itself)."""
+    import platform
+    if sys.platform == "win32":
+        return "yt-dlp.exe"
+    if sys.platform == "darwin":
+        return "yt-dlp_macos"
+    return "yt-dlp_linux_aarch64" if platform.machine().lower() in ("aarch64", "arm64") else "yt-dlp_linux"
+
+
+def ytdlp_managed():
+    return os.path.join(BIN_DIR, "yt-dlp.exe" if sys.platform == "win32" else "yt-dlp")
+
+
+def _ytdlp_stamp():
+    return os.path.join(BIN_DIR, "yt-dlp-checked")
+
+
+def _ytdlp_checked():
+    """When `-U` last answered, 0 if never."""
+    try:
+        with open(_ytdlp_stamp()) as fh:
+            return float(fh.read())
+    except (OSError, ValueError):
+        return 0.0
+
+
+def _ytdlp_mark_checked():
+    with open(_ytdlp_stamp(), "w") as fh:
+        fh.write(str(time.time()))
+
+
+def ytdlp_path():
+    """The yt-dlp at hand now, nothing fetched: the app's own, else the system's, else None."""
+    import shutil
+    managed = ytdlp_managed()
+    return managed if os.path.exists(managed) else shutil.which("yt-dlp")
+
+
+def fetch_ytdlp(cancelled=lambda: False):
+    """Downloads the standalone yt-dlp into the data folder. Afterwards it updates itself."""
+    os.makedirs(BIN_DIR, exist_ok=True)
+    target = ytdlp_managed()
+    part = target + ".part"
+    with requests.get(YTDLP_RELEASES + _ytdlp_asset(), headers={"User-Agent": AGENT}, stream=True, timeout=60) as r:
+        r.raise_for_status()
+        with open(part, "wb") as fh:
+            for chunk in r.iter_content(256 * 1024):
+                if cancelled():
+                    fh.close()
+                    os.remove(part)
+                    return None
+                fh.write(chunk)
+    os.chmod(part, 0o755)
+    os.replace(part, target)
+    _ytdlp_mark_checked()
+    return target
+
+
+def update_ytdlp(force=False, on_phase=lambda text: None):
+    """`yt-dlp -U` on the app's copy, at most once a day — or now, with `force`, when YouTube has
+    just turned a request away. Returns whether a newer yt-dlp came; no network is not an error."""
+    import subprocess
+    exe = ytdlp_managed()
+    if not os.path.exists(exe) or (not force and time.time() - _ytdlp_checked() < YTDLP_CHECK_EVERY):
+        return False
+    on_phase(_("updating yt-dlp…"))
+    before = os.stat(exe).st_mtime_ns, os.path.getsize(exe)
+    try:
+        done = subprocess.run([exe, "-U"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=600)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if done.returncode == 0:      # written down only after a real answer: otherwise the next use asks again
+        _ytdlp_mark_checked()
+    return (os.stat(exe).st_mtime_ns, os.path.getsize(exe)) != before
+
+
+def ytdlp_ready(on_phase=lambda text: None, cancelled=lambda: False):
+    """The yt-dlp to run: the app's own, fetched the first time and brought up to date when a day
+    has passed. Returns None when cancelled during the fetch."""
+    with _ytdlp_lock:      # several channels refreshed at once: one fetch, one update
+        managed = ytdlp_managed()
+        if os.path.exists(managed):
+            update_ytdlp(on_phase=on_phase)
+            return managed
+        on_phase(_("fetching yt-dlp (once)…"))
+        try:
+            return fetch_ytdlp(cancelled)
+        except Exception as exc:
+            system = ytdlp_path()
+            if system:
+                print("yt-dlp not fetched, the system's is used:", exc, file=sys.stderr)
+                return system
+            raise Told(_("yt-dlp could not be fetched (no network?): %s", str(exc)[:160]))
+
+
 def download_with_ytdlp(episode, on_progress, cancelled):
     """A YouTube entry is a page, not a file: yt-dlp finds the audio track and brings that down
-    alone. It is the system's own yt-dlp, kept current by whoever keeps the system."""
-    import subprocess
-    exe = ytdlp_path()
+    alone. `on_progress` gets a percentage, or a sentence while yt-dlp itself is fetched or
+    updated. Turned away, the download is tried once more if a newer yt-dlp has come out."""
+    exe = ytdlp_ready(on_progress, cancelled)
     if not exe:
-        raise Told(_("YouTube needs yt-dlp, which is not installed"))
+        return None
+    try:
+        return _download_with(exe, episode, on_progress, cancelled)
+    except RuntimeError:
+        if not update_ytdlp(force=True, on_phase=on_progress):
+            raise
+        return _download_with(exe, episode, on_progress, cancelled)
+
+
+def _download_with(exe, episode, on_progress, cancelled):
+    import subprocess
     os.makedirs(AUDIO_DIR, exist_ok=True)
     stem = os.path.join(AUDIO_DIR, episode["id"])
     for name in os.listdir(AUDIO_DIR):
@@ -2671,9 +2793,7 @@ def youtube_page_of(feed_url):
 def ytdlp_json(args):
     """One `yt-dlp -J` run, its JSON; the last lines of its complaint otherwise."""
     import subprocess
-    exe = ytdlp_path()
-    if not exe:
-        raise Told(_("YouTube needs yt-dlp, which is not installed"))
+    exe = ytdlp_ready()
     proc = subprocess.run([exe, "-J", "--no-warnings"] + args, capture_output=True, text=True, timeout=180)
     text = (proc.stdout or "").strip()
     if not text:
@@ -2893,7 +3013,7 @@ def next_chapter(chapters, position_ms):
 class Worker(QtCore.QObject):
     """One job on a thread of its own, reporting back to the window."""
     done = QtCore.pyqtSignal(object, object)     # result, error
-    progress = QtCore.pyqtSignal(int)
+    progress = QtCore.pyqtSignal(object)      # a percentage, or a sentence (yt-dlp fetched or updated)
 
     def __init__(self, job):
         super().__init__()
@@ -3593,6 +3713,7 @@ class Main(QtWidgets.QMainWindow):
         self.text_line = -1          # the line of the text the sound is at
         self.shelving = False
         self.download_percent = 0
+        self.download_phase = ""
         self.cancel_download = False
         self.busy = ""               # a line at the top while something is happening
         self.open_seasons = {}       # channel id -> the seasons shown open, for this sitting
@@ -3868,7 +3989,7 @@ class Main(QtWidgets.QMainWindow):
                                  % (ms, link, clock(ms), html.escape(title)) for ms, title in chapters))
             parts.append('<br>')
         notes = linkify(e.get("description", ""), duration, times=True).replace("<a href=", "<a %s href=" % link)
-        if not e.get("description") and is_youtube_episode(e) and ytdlp_path():
+        if not e.get("description") and is_youtube_episode(e):
             notes = '<span style="color:%s;">%s</span>' % (dim, html.escape(_("the words of this video are being fetched…")))
             self.describe_later(e)
         parts.append('<div style="line-height:140%%;">%s</div>' % notes)
@@ -4387,7 +4508,7 @@ class Main(QtWidgets.QMainWindow):
         elif any(q[0] == e["id"] for q in self.speech_queue) or e["id"] in self.after_fetch:
             state = _("waiting")
         elif self.downloading == e["id"]:
-            state = _("downloading %d %%", self.download_percent)
+            state = self.download_phase or _("downloading %d %%", self.download_percent)
         elif e["id"] in self.download_queue:
             state = _("waiting")
         elif e.get("state") == "PLAYED":
@@ -4689,6 +4810,7 @@ class Main(QtWidgets.QMainWindow):
             return
         self.downloading = eid
         self.download_percent = 0
+        self.download_phase = ""
         self.cancel_download = False
 
         def job(progress):
@@ -4712,7 +4834,12 @@ class Main(QtWidgets.QMainWindow):
             self.next_download()
 
         def progress(percent):
-            self.download_percent = percent
+            # A sentence instead of a percentage: yt-dlp itself being fetched or updated first.
+            if isinstance(percent, str):
+                self.download_phase = percent
+            else:
+                self.download_phase = ""
+                self.download_percent = percent
             self.refresh_episodes_list()
 
         self.run(job, done, progress)
